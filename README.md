@@ -1,6 +1,6 @@
 # GameFinder
 
-GameFinder es una plataforma web de búsqueda, comparación de precios y recomendación personalizada de videojuegos. Esta aplicación centraliza en una sola vista la ficha de cada juego y sus precios vigentes en múltiples tiendas digitales asociadas, resolviendo la dispersión de información en el mercado. 
+GameFinder es una plataforma web de búsqueda, comparación de precios y recomendación personalizada de videojuegos. Esta aplicación centraliza en una sola vista la ficha de cada juego y sus precios vigentes en múltiples tiendas digitales asociadas, resolviendo la dispersión de información en el mercado.  
 
 ##  Características principales
 
