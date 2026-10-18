@@ -1,32 +1,18 @@
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 
-# 1. Cargar las variables del archivo .env
 load_dotenv()
 
-# 2. Obtener la URL de Railway
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+# Ahora buscaremos una variable exclusiva para Mongo
+MONGO_URL = os.getenv("MONGO_URL")
 
-# Reparación automática por si olvidaste poner "+pymysql" en el .env
-if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("mysql://"):
-    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
+# Crear el cliente asíncrono
+client = AsyncIOMotorClient(MONGO_URL)
 
-# 3. Crear el "motor" (engine) que se comunica con MySQL en Railway
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+# Definir la base de datos (puedes cambiar el nombre)
+db = client["gamefinder_db"]
 
-# 4. Crear la fábrica de sesiones para ejecutar consultas
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# 5. Crear la clase Base de la cual heredarán todas nuestras tablas
-Base = declarative_base()
-
-# Dependencia para obtener la sesión de la BD en nuestros endpoints
+# Nueva dependencia: retorna directamente el objeto de base de datos
 def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    return db
