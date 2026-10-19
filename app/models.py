@@ -1,6 +1,10 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from pydantic import BaseModel, Field, ConfigDict, BeforeValidator
+from typing import List, Optional, Annotated
 from datetime import datetime
+
+# --- TIPO PERSONALIZADO PARA MONGODB ---
+# Esta línea le enseña a Pydantic a convertir un ObjectId de Mongo a String
+PyObjectId = Annotated[str, BeforeValidator(str)]
 
 # --- SUBDOCUMENTOS (Embebidos) ---
 
@@ -17,48 +21,47 @@ class Preferencia(BaseModel):
     generos_preferidos: List[str] = []
 
 class JuegoDeseado(BaseModel):
-    id_juego: str # Se guarda el ObjectId como string en FastAPI
+    id_juego: str
     fecha_agregado: datetime = Field(default_factory=datetime.now)
 
 # --- COLECCIONES PRINCIPALES ---
 
 class Juego(BaseModel):
-    # Field(alias="_id") permite mapear el _id de Mongo a "id" en Python
-    id: Optional[str] = Field(alias="_id", default=None)
+    # Usamos PyObjectId en lugar de str
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
     titulo: str
     descripcion: Optional[str] = None
     fecha_lanzamiento: Optional[datetime] = None
     desarrollador: Optional[str] = None
     imagen_portada: Optional[str] = None
     
-    # Arreglos directos (reemplazan a JUEGO_GENERO y JUEGO_PLATAFORMA)
     generos: List[str] = []
     plataformas: List[str] = []
     
-    # Campo precalculado y subdocumentos
     precio_mas_barato: Optional[float] = None
     tiendas: List[PrecioTienda] = []
 
     model_config = ConfigDict(populate_by_name=True)
 
 class Usuario(BaseModel):
-    id: Optional[str] = Field(alias="_id", default=None)
+    # Usamos PyObjectId en lugar de str
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
     nombre: str
     correo: str
     contrasena_hash: str
     fecha_registro: datetime = Field(default_factory=datetime.now)
     
-    # Subdocumentos embebidos (reemplazan a PREFERENCIA y LISTA_DESEADOS)
     preferencias: Optional[Preferencia] = None
     lista_deseados: List[JuegoDeseado] = []
 
     model_config = ConfigDict(populate_by_name=True)
 
 class Calificacion(BaseModel):
-    id: Optional[str] = Field(alias="_id", default=None)
+    # Usamos PyObjectId en lugar de str
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
     id_usuario: str
     id_juego: str
-    puntaje: int = Field(ge=1, le=5) # Reemplaza el CheckConstraint de SQL
+    puntaje: int = Field(ge=1, le=5)
     comentario: Optional[str] = None
     fecha: datetime = Field(default_factory=datetime.now)
 
