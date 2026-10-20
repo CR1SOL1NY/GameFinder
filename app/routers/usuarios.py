@@ -74,3 +74,44 @@ async def agregar_a_deseados(usuario_id: str, juego_id: str, db: AsyncIOMotorDat
         raise HTTPException(status_code=404, detail="Usuario no encontrado o el juego ya estaba exactamente igual")
         
     return {"mensaje": "Juego agregado a deseados exitosamente"}
+
+@router.get("/{usuario_id}/recomendaciones")
+async def obtener_recomendaciones(usuario_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+    """Obtiene una lista de juegos recomendados basados en las preferencias del usuario."""
+    
+    if not ObjectId.is_valid(usuario_id):
+        raise HTTPException(status_code=400, detail="Formato de ID inválido")
+
+    # 1. Buscar al usuario
+    usuario = await db.usuarios.find_one({"_id": ObjectId(usuario_id)})
+    
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+    # 2. Extraer preferencias
+    preferencias = usuario.get("preferencias")
+    if not preferencias:
+        raise HTTPException(status_code=400, detail="El usuario no tiene preferencias configuradas")
+
+    generos_pref = preferencias.get("generos_preferidos", [])
+    precio_min = preferencias.get("precio_min", 0)
+    precio_max = preferencias.get("precio_max", 999999)
+
+    # 3. Construir la consulta NoSQL para el motor
+    query_recomendaciones = {
+        "generos": { "$in": generos_pref },
+        "precio_mas_barato": { "$gte": precio_min, "$lte": precio_max }
+    }
+
+    # 4. Ejecutar la búsqueda en la colección de juegos
+    cursor = db.juegos.find(
+        query_recomendaciones, 
+        {"_id": 0, "titulo": 1, "generos": 1, "precio_mas_barato": 1}
+    )
+    juegos_recomendados = await cursor.sort("precio_mas_barato", 1).limit(5).to_list(length=None)
+
+    return {
+        "usuario": usuario.get("nombre", "Usuario"),
+        "criterios_busqueda": preferencias,
+        "recomendaciones": juegos_recomendados
+    }
