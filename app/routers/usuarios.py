@@ -9,6 +9,7 @@ from app.models import Usuario
 
 class LoginRequest(BaseModel):
     correo: str
+    contrasena: str
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
@@ -41,11 +42,20 @@ async def crear_usuario(usuario_in: Usuario, db: AsyncIOMotorDatabase = Depends(
 
 @router.post("/login", response_model=Usuario)
 async def login_usuario(credenciales: LoginRequest, db: AsyncIOMotorDatabase = Depends(get_db)):
-    """Busca un usuario por su correo para iniciar sesión."""
+    """Busca un usuario por su correo y valida la contraseña para iniciar sesión."""
+    
+    # 1. Buscamos al usuario en la colección
     usuario = await db.usuarios.find_one({"correo": credenciales.correo})
     
+    # 2. Verificamos si existe el correo
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado con ese correo")
+        
+    # 3. Validamos la contraseña contra el hash almacenado
+    if usuario.get("contrasena_hash") != credenciales.contrasena:
+        # Usamos 401 Unauthorized para credenciales inválidas
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+        
     return usuario
 
 @router.put("/{usuario_id}/deseados/{juego_id}")
