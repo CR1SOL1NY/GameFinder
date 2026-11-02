@@ -72,3 +72,46 @@ async def agregar_calificacion(id_juego: str, calificacion_in: Calificacion, db:
     resultado = await db.calificaciones.insert_one(cal_dict)
     nueva_calificacion = await db.calificaciones.find_one({"_id": resultado.inserted_id})
     return nueva_calificacion
+
+@router.get("/estadisticas/calificaciones")
+async def estadisticas_juegos(db: AsyncIOMotorDatabase = Depends(get_db)):
+    """
+    Obtiene estadísticas agrupadas de los juegos (Equivalente a JOIN + GROUP BY).
+    """
+    pipeline = [
+        {
+            # Operador de cruce (Equivalente a LEFT JOIN)
+            "$lookup": {
+                "from": "calificaciones",
+                "localField": "_id",
+                "foreignField": "id_juego",
+                "as": "reseñas"
+            }
+        },
+        {
+            # Operador de proyección y métricas (Equivalente a GROUP BY / AVG)
+            "$project": {
+                "titulo": 1,
+                "total_reseñas": { "$size": "$reseñas" },
+                "promedio_puntaje": { "$avg": "$reseñas.puntaje" }
+            }
+        },
+        {
+            # Filtro restrictivo
+            "$match": {
+                "total_reseñas": { "$gt": 0 }
+            }
+        },
+        {
+            "$sort": { "promedio_puntaje": -1 }
+        }
+    ]
+    
+    cursor = db.juegos.aggregate(pipeline)
+    resultados = await cursor.to_list(length=100) # Límite controlado
+    
+    # Manejo de serialización crítica: Transformar ObjectId a String
+    for res in resultados:
+        res["_id"] = str(res["_id"])
+        
+    return resultados
