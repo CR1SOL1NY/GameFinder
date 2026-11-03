@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field, ConfigDict
 from app.database import get_db
 from app.models import Calificacion
 from typing import List
+from typing import Optional
+
 # Esquema de entrada compatible con los campos reales de Atlas.
 class CalificacionCreate(BaseModel):
     usuarioId: str
@@ -14,6 +16,14 @@ class CalificacionCreate(BaseModel):
     comentario: str
     model_config = ConfigDict(populate_by_name=True)
 
+class CalificacionUpdate(BaseModel):
+    puntaje: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=5
+    )
+    comentario: Optional[str] = None
+    
 router = APIRouter(prefix="/calificaciones", tags=["Calificaciones"])
 
 @router.get("/juego/{juego_id}", response_model=List[Calificacion])
@@ -83,4 +93,60 @@ async def eliminar_calificacion(
     return {
         "mensaje": "Calificación eliminada exitosamente",
         "calificacionId": calificacion_id
+    }
+
+@router.put("/{calificacion_id}")
+async def modificar_calificacion(
+    calificacion_id: str,
+    datos: CalificacionUpdate,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Actualiza el puntaje y comentario de una calificación."""
+
+    # 1. Validar ID
+    if not ObjectId.is_valid(calificacion_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Formato de ID inválido"
+        )
+
+    # 2. Obtener campos enviados
+    cambios = datos.model_dump(exclude_unset=True)
+
+    if not cambios or any(
+        valor is None for valor in cambios.values()
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Debes enviar campos válidos para actualizar"
+        )
+
+    # 3. Actualizar fecha de modificación
+    cambios["fecha"] = datetime.now(timezone.utc)
+
+    # 4. Actualizar documento
+    resultado = await db.calificaciones.update_one(
+        {"_id": ObjectId(calificacion_id)},
+        {"$set": cambios}
+    )
+
+    if resultado.matched_count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="Calificación no encontrada"
+        )
+
+    # 5. Recuperar calificación actualizada
+    calificacion = await db.calificaciones.find_one({
+        "_id": ObjectId(calificacion_id)
+    })
+
+    return {
+        "mensaje": "Calificación actualizada exitosamente",
+        "calificacionId": str(calificacion["_id"]),
+        "usuarioId": str(calificacion["usuarioId"]),
+        "juegoId": str(calificacion["juegoId"]),
+        "puntaje": calificacion["puntaje"],
+        "comentario": calificacion.get("comentario"),
+        "fecha": calificacion["fecha"]
     }

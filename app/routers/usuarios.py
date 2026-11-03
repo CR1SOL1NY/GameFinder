@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models import Usuario, UsuarioPublic
 import bcrypt
+from datetime import datetime, timezone
+
 
 class LoginRequest(BaseModel):
     correo: str
@@ -192,4 +194,124 @@ async def eliminar_usuario(
     return {
         "mensaje": "Usuario eliminado exitosamente",
         "usuarioId": usuario_id
+    }
+    
+@router.put("/{usuario_id}/deseados/{juego_id}")
+async def agregar_a_deseados(
+    usuario_id: str,
+    juego_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    if not ObjectId.is_valid(usuario_id) or not ObjectId.is_valid(juego_id):
+        raise HTTPException(status_code=400, detail="ID inválido")
+
+    usuario_oid = ObjectId(usuario_id)
+    juego_oid = ObjectId(juego_id)
+
+    if not await db.usuarios.find_one({"_id": usuario_oid}):
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    if not await db.juegos.find_one({"_id": juego_oid}):
+        raise HTTPException(status_code=404, detail="Juego no encontrado")
+
+    resultado = await db.usuarios.update_one(
+        {
+            "_id": usuario_oid,
+            "listaDeseados.juegoId": {"$ne": juego_oid}
+        },
+        {
+            "$push": {
+                "listaDeseados": {
+                    "juegoId": juego_oid,
+                    "fechaAgregado": datetime.now(timezone.utc)
+                }
+            }
+        }
+    )
+
+    if resultado.modified_count == 0:
+        raise HTTPException(
+            status_code=409,
+            detail="El juego ya está en la lista de deseados"
+        )
+
+    return {"mensaje": "Juego agregado a deseados exitosamente"}
+
+@router.delete("/{usuario_id}/deseados/{juego_id}")
+async def eliminar_de_deseados(
+    usuario_id: str,
+    juego_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    if not ObjectId.is_valid(usuario_id) or not ObjectId.is_valid(juego_id):
+        raise HTTPException(status_code=400, detail="ID inválido")
+
+    usuario_oid = ObjectId(usuario_id)
+    juego_oid = ObjectId(juego_id)
+
+    resultado = await db.usuarios.update_one(
+        {"_id": usuario_oid},
+        {
+            "$pull": {
+                "listaDeseados": {"juegoId": juego_oid}
+            }
+        }
+    )
+
+    if resultado.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    if resultado.modified_count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="El juego no está en la lista de deseados"
+        )
+
+    return {"mensaje": "Juego eliminado de deseados exitosamente"}
+
+@router.get("/{usuario_id}/deseados")
+async def obtener_lista_deseados(
+    usuario_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    if not ObjectId.is_valid(usuario_id):
+        raise HTTPException(status_code=400, detail="ID inválido")
+
+    usuario_oid = ObjectId(usuario_id)
+
+    usuario = await db.usuarios.find_one({"_id": usuario_oid})
+
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    pipeline = [
+        {"$match": {"_id": usuario_oid}},
+        {"$unwind": "$listaDeseados"},
+        {
+            "$lookup": {
+                "from": "juegos",
+                "localField": "listaDeseados.juegoId",
+                "foreignField": "_id",
+                "as": "juego"
+            }
+        },
+        {"$unwind": "$juego"},
+        {
+            "$project": {
+                "_id": 0,
+                "juegoId": {"$toString": "$juego._id"},
+                "titulo": "$juego.titulo",
+                "fechaAgregado": "$listaDeseados.fechaAgregado"
+            }
+        },
+        {"$sort": {"fechaAgregado": -1}}
+    ]
+
+    deseados = await db.usuarios.aggregate(pipeline).to_list(length=100)
+
+    return {
+        "usuarioId": usuario_id,
+        "nombre": usuario["nombre"],
+        "totalDeseados": len(deseados),
+        "listaDeseados": deseados
     }
