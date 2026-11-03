@@ -3,13 +3,16 @@ from datetime import datetime, timezone
 
 import bcrypt
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.security import crear_access_token, get_current_user
+
+from fastapi import Request
+from app.limiter import limiter
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
@@ -56,24 +59,55 @@ async def listar_usuarios(
 
 
 # Importante: las rutas estáticas van antes de /{usuario_id}.
+
 @router.post("/login")
-async def login_usuario(credenciales: LoginRequest, db: AsyncIOMotorDatabase = Depends(get_db)):
-    usuario = await db.usuarios.find_one({"correo": credenciales.correo})
+@limiter.limit("5/minute")
+async def login_usuario(
+    request: Request,
+    credenciales: LoginRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    # Aquí conservas tu código de autenticación JWT
+    # 1. Buscar usuario
+    usuario = await db.usuarios.find_one({
+        "correo": credenciales.correo
+    })
+
     if not usuario:
-        raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos")
+        raise HTTPException(
+            status_code=401,
+            detail="Correo o contraseña incorrectos"
+        )
+
+    # 2. Verificar contraseña
     try:
         valido = bcrypt.checkpw(
             credenciales.contrasena.encode("utf-8"),
-            usuario.get("contrasenaHash", "").encode("utf-8"),
+            usuario.get("contrasenaHash", "").encode("utf-8")
         )
     except (ValueError, TypeError):
         valido = False
+
     if not valido:
-        raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos")
+        raise HTTPException(
+            status_code=401,
+            detail="Correo o contraseña incorrectos"
+        )
+
+    # 3. Generar token JWT
+    token = crear_access_token(
+        str(usuario["_id"])
+    )
+
+    # 4. Devolver token y datos públicos
     return {
-        "access_token": crear_access_token(str(usuario["_id"])),
+        "access_token": token,
         "token_type": "bearer",
-        "usuario": {"id": str(usuario["_id"]), "nombre": usuario["nombre"], "correo": usuario["correo"]},
+        "usuario": {
+            "id": str(usuario["_id"]),
+            "nombre": usuario["nombre"],
+            "correo": usuario["correo"]
+        }
     }
 
 
