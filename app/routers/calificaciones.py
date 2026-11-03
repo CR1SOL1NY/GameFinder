@@ -1,152 +1,88 @@
-from fastapi import APIRouter, Depends, HTTPException
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from bson import ObjectId
+"""Calificaciones: GET/POST públicos; PUT/DELETE requieren JWT."""
 from datetime import datetime, timezone
-from pydantic import BaseModel, Field, ConfigDict
-from app.database import get_db
-from app.models import Calificacion
-from typing import List
-from typing import Optional
 
-# Esquema de entrada compatible con los campos reales de Atlas.
+from bson import ObjectId
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.encoders import jsonable_encoder
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from pydantic import BaseModel, Field
+
+from app.database import get_db
+from app.security import get_current_user
+
+router = APIRouter(prefix="/calificaciones", tags=["Calificaciones"])
+
+
+def serializar(valor):
+    return jsonable_encoder(valor, custom_encoder={ObjectId: str})
+
+
+def validar_id(valor: str):
+    if not ObjectId.is_valid(valor):
+        raise HTTPException(status_code=400, detail="Formato de ID inválido")
+    return ObjectId(valor)
+
+
 class CalificacionCreate(BaseModel):
     usuarioId: str
     juegoId: str
-    puntaje: int = Field(ge=1, le=5, description="El puntaje debe ser entre 1 y 5")
+    puntaje: int = Field(ge=1, le=5)
     comentario: str
-    model_config = ConfigDict(populate_by_name=True)
+
 
 class CalificacionUpdate(BaseModel):
-    puntaje: Optional[int] = Field(
-        default=None,
-        ge=1,
-        le=5
-    )
-    comentario: Optional[str] = None
-    
-router = APIRouter(prefix="/calificaciones", tags=["Calificaciones"])
+    puntaje: int | None = Field(default=None, ge=1, le=5)
+    comentario: str | None = None
 
-@router.get("/juego/{juego_id}", response_model=List[Calificacion])
+
+@router.get("/juego/{juego_id}")
 async def obtener_calificaciones_juego(juego_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
-    """Obtiene todas las reseñas de un juego, de la más reciente a la más antigua."""
-    if not ObjectId.is_valid(juego_id):
-        raise HTTPException(status_code=400, detail="Formato de ID de juego inválido")
-    cursor = db.calificaciones.find({"juegoId": ObjectId(juego_id)}).sort("fecha", -1)
-    calificaciones_bd = await cursor.to_list(length=100)
-    for c in calificaciones_bd:
-        c["_id"] = str(c["_id"])
-        c["usuarioId"] = str(c["usuarioId"])
-        c["juegoId"] = str(c["juegoId"])
-    return calificaciones_bd
+    oid = validar_id(juego_id)
+    reseñas = await db.calificaciones.find({"juegoId": oid}).sort("fecha", -1).to_list(length=100)
+    return serializar(reseñas)
 
-@router.post("/", response_model=Calificacion)
-async def crear_calificacion(calificacion: CalificacionCreate, db: AsyncIOMotorDatabase = Depends(get_db)):
-    """Permite publicar una nueva reseña y puntaje para un juego."""
-    if not ObjectId.is_valid(calificacion.usuarioId) or not ObjectId.is_valid(calificacion.juegoId):
-        raise HTTPException(status_code=400, detail="Formato de IDs inválidos")
-    if not await db.usuarios.find_one({"_id": ObjectId(calificacion.usuarioId)}):
-        raise HTTPException(status_code=404, detail="El usuario no existe")
-    if not await db.juegos.find_one({"_id": ObjectId(calificacion.juegoId)}):
-        raise HTTPException(status_code=404, detail="El juego no existe")
 
-    nueva_calificacion = {
-        "usuarioId": ObjectId(calificacion.usuarioId),
-        "juegoId": ObjectId(calificacion.juegoId),
-        "puntaje": calificacion.puntaje,
-        "comentario": calificacion.comentario,
-        "fecha": datetime.now(timezone.utc),
-        "visible": True
+@router.post("/", status_code=201)
+async def crear_calificacion(datos: CalificacionCreate, db: AsyncIOMotorDatabase = Depends(get_db)):
+    usuario_oid, juego_oid = validar_id(datos.usuarioId), validar_id(datos.juegoId)
+    if not await db.usuarios.find_one({"_id": usuario_oid}):
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if not await db.juegos.find_one({"_id": juego_oid}):
+        raise HTTPException(status_code=404, detail="Juego no encontrado")
+    documento = {
+        "usuarioId": usuario_oid, "juegoId": juego_oid,
+        "puntaje": datos.puntaje, "comentario": datos.comentario,
+        "fecha": datetime.now(timezone.utc), "visible": True,
     }
-    resultado = await db.calificaciones.insert_one(nueva_calificacion)
-    creada = await db.calificaciones.find_one({"_id": resultado.inserted_id})
-    creada["_id"] = str(creada["_id"])
-    creada["usuarioId"] = str(creada["usuarioId"])
-    creada["juegoId"] = str(creada["juegoId"])
-    return creada
+    resultado = await db.calificaciones.insert_one(documento)
+    return serializar(await db.calificaciones.find_one({"_id": resultado.inserted_id}))
 
-@router.delete("/{calificacion_id}")
-async def eliminar_calificacion(
-    calificacion_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_db)
-):
-    """Elimina una calificación por su ID."""
-
-    # 1. Validar ObjectId
-    if not ObjectId.is_valid(calificacion_id):
-        raise HTTPException(
-            status_code=400,
-            detail="Formato de ID inválido"
-        )
-
-    # 2. Eliminar calificación
-    resultado = await db.calificaciones.delete_one({
-        "_id": ObjectId(calificacion_id)
-    })
-
-    # 3. Verificar resultado
-    if resultado.deleted_count == 0:
-        raise HTTPException(
-            status_code=404,
-            detail="Calificación no encontrada"
-        )
-
-    return {
-        "mensaje": "Calificación eliminada exitosamente",
-        "calificacionId": calificacion_id
-    }
 
 @router.put("/{calificacion_id}")
 async def modificar_calificacion(
     calificacion_id: str,
     datos: CalificacionUpdate,
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    usuario_actual: dict = Depends(get_current_user),
 ):
-    """Actualiza el puntaje y comentario de una calificación."""
-
-    # 1. Validar ID
-    if not ObjectId.is_valid(calificacion_id):
-        raise HTTPException(
-            status_code=400,
-            detail="Formato de ID inválido"
-        )
-
-    # 2. Obtener campos enviados
+    oid = validar_id(calificacion_id)
     cambios = datos.model_dump(exclude_unset=True)
-
-    if not cambios or any(
-        valor is None for valor in cambios.values()
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Debes enviar campos válidos para actualizar"
-        )
-
-    # 3. Actualizar fecha de modificación
+    if not cambios or any(v is None for v in cambios.values()):
+        raise HTTPException(status_code=400, detail="Envía puntaje y/o comentario válidos")
     cambios["fecha"] = datetime.now(timezone.utc)
-
-    # 4. Actualizar documento
-    resultado = await db.calificaciones.update_one(
-        {"_id": ObjectId(calificacion_id)},
-        {"$set": cambios}
-    )
-
+    resultado = await db.calificaciones.update_one({"_id": oid}, {"$set": cambios})
     if resultado.matched_count == 0:
-        raise HTTPException(
-            status_code=404,
-            detail="Calificación no encontrada"
-        )
+        raise HTTPException(status_code=404, detail="Calificación no encontrada")
+    return serializar(await db.calificaciones.find_one({"_id": oid}))
 
-    # 5. Recuperar calificación actualizada
-    calificacion = await db.calificaciones.find_one({
-        "_id": ObjectId(calificacion_id)
-    })
 
-    return {
-        "mensaje": "Calificación actualizada exitosamente",
-        "calificacionId": str(calificacion["_id"]),
-        "usuarioId": str(calificacion["usuarioId"]),
-        "juegoId": str(calificacion["juegoId"]),
-        "puntaje": calificacion["puntaje"],
-        "comentario": calificacion.get("comentario"),
-        "fecha": calificacion["fecha"]
-    }
+@router.delete("/{calificacion_id}")
+async def eliminar_calificacion(
+    calificacion_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    usuario_actual: dict = Depends(get_current_user),
+):
+    resultado = await db.calificaciones.delete_one({"_id": validar_id(calificacion_id)})
+    if resultado.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Calificación no encontrada")
+    return {"mensaje": "Calificación eliminada exitosamente", "calificacionId": calificacion_id}
