@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
 from typing import List
-from datetime import datetime
 from pydantic import BaseModel
 from app.database import get_db
-from app.models import Usuario
+from app.models import Usuario, UsuarioPublic
+import bcrypt
 
 class LoginRequest(BaseModel):
     correo: str
@@ -13,115 +13,183 @@ class LoginRequest(BaseModel):
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
-@router.get("/", response_model=List[Usuario])
+@router.get("/", response_model=List[UsuarioPublic])
 async def listar_usuarios(skip: int = 0, limit: int = 100, db: AsyncIOMotorDatabase = Depends(get_db)):
     """Obtiene la lista de todos los usuarios registrados."""
     cursor = db.usuarios.find().skip(skip).limit(limit)
     return await cursor.to_list(length=limit)
 
-@router.get("/{usuario_id}", response_model=Usuario)
+@router.get("/{usuario_id}", response_model=UsuarioPublic)
 async def obtener_usuario_por_id(usuario_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
     """Busca un usuario específico por su ID de Mongo."""
     if not ObjectId.is_valid(usuario_id):
         raise HTTPException(status_code=400, detail="Formato de ID inválido")
-        
     usuario = await db.usuarios.find_one({"_id": ObjectId(usuario_id)})
     if usuario is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return usuario
 
-@router.post("/", response_model=Usuario)
+@router.post("/", response_model=UsuarioPublic)
 async def crear_usuario(usuario_in: Usuario, db: AsyncIOMotorDatabase = Depends(get_db)):
-    """Crea un nuevo usuario en la base de datos."""
-    # Convertimos Pydantic a dict excluyendo el id para que Mongo lo genere seguro
+    """Crea un usuario. contrasenaHash debe contener un hash bcrypt válido."""
     usuario_dict = usuario_in.model_dump(by_alias=True, exclude={"id"})
-    
+    if not usuario_dict["contrasenaHash"].startswith(("$2a$", "$2b$", "$2y$")):
+        raise HTTPException(status_code=400, detail="contrasenaHash debe contener un hash bcrypt válido")
+    if any(not ObjectId.is_valid(i) for i in usuario_in.listaDeseados):
+        raise HTTPException(status_code=400, detail="ID inválido en listaDeseados")
+    usuario_dict["listaDeseados"] = [ObjectId(i) for i in usuario_in.listaDeseados]
     resultado = await db.usuarios.insert_one(usuario_dict)
-    nuevo_usuario = await db.usuarios.find_one({"_id": resultado.inserted_id})
-    return nuevo_usuario
+    return await db.usuarios.find_one({"_id": resultado.inserted_id})
 
-@router.post("/login", response_model=Usuario)
+@router.post("/login", response_model=UsuarioPublic)
 async def login_usuario(credenciales: LoginRequest, db: AsyncIOMotorDatabase = Depends(get_db)):
-    """Busca un usuario por su correo y valida la contraseña para iniciar sesión."""
-    
-    # 1. Buscamos al usuario en la colección
+    """Comprueba el hash bcrypt de la contraseña de un usuario."""
     usuario = await db.usuarios.find_one({"correo": credenciales.correo})
-    
-    # 2. Verificamos si existe el correo
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado con ese correo")
-        
-    # 3. Validamos la contraseña contra el hash almacenado
-    if usuario.get("contrasena_hash") != credenciales.contrasena:
-        # Usamos 401 Unauthorized para credenciales inválidas
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-        
+    try:
+        valido = bcrypt.checkpw(
+            credenciales.contrasena.encode("utf-8"),
+            usuario["contrasenaHash"].encode("utf-8")
+        )
+    except (ValueError, TypeError, KeyError):
+        valido = False
+    if not valido:
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
     return usuario
 
 @router.put("/{usuario_id}/deseados/{juego_id}")
 async def agregar_a_deseados(usuario_id: str, juego_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
-    """Agrega un juego a la lista de deseados usando una actualización atómica ($push)."""
+    """Agrega un juego a listaDeseados sin duplicarlo."""
     if not ObjectId.is_valid(usuario_id) or not ObjectId.is_valid(juego_id):
         raise HTTPException(status_code=400, detail="Formato de ID inválido")
-    
-    # Verificamos que el juego exista
-    juego_existe = await db.juegos.find_one({"_id": ObjectId(juego_id)})
-    if not juego_existe:
+    if not await db.juegos.find_one({"_id": ObjectId(juego_id)}):
         raise HTTPException(status_code=404, detail="El juego que intentas agregar no existe")
-    
-    nuevo_deseado = {
-        "id_juego": juego_id,
-        "fecha_agregado": datetime.now()
-    }
-    
-    # Inyectamos el juego en el arreglo del usuario
     resultado = await db.usuarios.update_one(
         {"_id": ObjectId(usuario_id)},
-        {"$push": {"lista_deseados": nuevo_deseado}}
+        {"$addToSet": {"listaDeseados": ObjectId(juego_id)}}
     )
-    
-    if resultado.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado o el juego ya estaba exactamente igual")
-        
+    if resultado.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return {"mensaje": "Juego agregado a deseados exitosamente"}
 
 @router.get("/{usuario_id}/recomendaciones")
 async def obtener_recomendaciones(usuario_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
-    """Obtiene una lista de juegos recomendados basados en las preferencias del usuario."""
-    
+    """Obtiene recomendaciones según las preferencias del usuario."""
     if not ObjectId.is_valid(usuario_id):
         raise HTTPException(status_code=400, detail="Formato de ID inválido")
-
-    # 1. Buscar al usuario
     usuario = await db.usuarios.find_one({"_id": ObjectId(usuario_id)})
-    
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-        
-    # 2. Extraer preferencias
     preferencias = usuario.get("preferencias")
     if not preferencias:
         raise HTTPException(status_code=400, detail="El usuario no tiene preferencias configuradas")
 
-    generos_pref = preferencias.get("generos_preferidos", [])
-    precio_min = preferencias.get("precio_min", 0)
-    precio_max = preferencias.get("precio_max", 999999)
-
-    # 3. Construir la consulta NoSQL para el motor
+    generos_pref = preferencias.get("generos", [])
+    precio_min = preferencias.get("precioMin", 0)
+    precio_max = preferencias.get("precioMax", 999999)
     query_recomendaciones = {
-        "generos": { "$in": generos_pref },
-        "precio_mas_barato": { "$gte": precio_min, "$lte": precio_max }
+        "generos": {"$in": generos_pref},
+        "precio_mas_barato.precio": {"$gte": precio_min, "$lte": precio_max}
     }
-
-    # 4. Ejecutar la búsqueda en la colección de juegos
-    cursor = db.juegos.find(
-        query_recomendaciones, 
-        {"_id": 0, "titulo": 1, "generos": 1, "precio_mas_barato": 1}
-    )
-    juegos_recomendados = await cursor.sort("precio_mas_barato", 1).limit(5).to_list(length=None)
-
+    cursor = db.juegos.find(query_recomendaciones, {
+        "_id": 0, "titulo": 1, "generos": 1, "precio_mas_barato": 1
+    })
+    juegos_recomendados = await cursor.sort("precio_mas_barato.precio", 1).limit(5).to_list(length=5)
     return {
         "usuario": usuario.get("nombre", "Usuario"),
         "criterios_busqueda": preferencias,
         "recomendaciones": juegos_recomendados
+    }
+
+@router.delete("/{usuario_id}/deseados/{juego_id}")
+async def eliminar_de_deseados(
+    usuario_id: str,
+    juego_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Elimina un juego de la lista de deseados de un usuario."""
+
+    # 1. Validar los ObjectId
+    if not ObjectId.is_valid(usuario_id) or not ObjectId.is_valid(juego_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Formato de ID inválido"
+        )
+
+    # 2. Comprobar que el usuario exista
+    usuario = await db.usuarios.find_one({
+        "_id": ObjectId(usuario_id)
+    })
+
+    if not usuario:
+        raise HTTPException(
+            status_code=404,
+            detail="Usuario no encontrado"
+        )
+
+    # 3. Eliminar el juego de la lista de deseados
+    resultado = await db.usuarios.update_one(
+        {"_id": ObjectId(usuario_id)},
+        {
+            "$pull": {
+                "listaDeseados": ObjectId(juego_id)
+            }
+        }
+    )
+
+    # 4. Comprobar si se eliminó
+    if resultado.modified_count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="El juego no está en la lista de deseados"
+        )
+
+    # 5. Respuesta
+    return {
+        "mensaje": "Juego eliminado de la lista de deseados exitosamente",
+        "usuarioId": usuario_id,
+        "juegoId": juego_id
+    }
+    
+@router.delete("/{usuario_id}")
+async def eliminar_usuario(
+    usuario_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Elimina un usuario y sus calificaciones."""
+
+    # 1. Validar ObjectId
+    if not ObjectId.is_valid(usuario_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Formato de ID inválido"
+        )
+
+    usuario_oid = ObjectId(usuario_id)
+
+    # 2. Verificar existencia
+    usuario = await db.usuarios.find_one({
+        "_id": usuario_oid
+    })
+
+    if not usuario:
+        raise HTTPException(
+            status_code=404,
+            detail="Usuario no encontrado"
+        )
+
+    # 3. Eliminar calificaciones del usuario
+    await db.calificaciones.delete_many({
+        "usuarioId": usuario_oid
+    })
+
+    # 4. Eliminar usuario
+    await db.usuarios.delete_one({
+        "_id": usuario_oid
+    })
+
+    return {
+        "mensaje": "Usuario eliminado exitosamente",
+        "usuarioId": usuario_id
     }

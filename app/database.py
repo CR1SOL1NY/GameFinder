@@ -4,15 +4,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Ahora buscaremos una variable exclusiva para Mongo
-MONGO_URL = os.getenv("MONGO_URL")
+# Compatible con el nombre original y con el utilizado en el seed de Atlas.
+MONGO_URL = os.getenv("MONGO_URL") or os.getenv("MONGODB_URI")
+if not MONGO_URL:
+    raise RuntimeError("Falta MONGO_URL o MONGODB_URI. Configúrala en tu archivo .env.")
 
-# Crear el cliente asíncrono
 client = AsyncIOMotorClient(MONGO_URL)
+db = client[os.getenv("MONGO_DB_NAME", "GameFinder")]
 
-# Definir la base de datos (puedes cambiar el nombre)
-db = client["gamefinder_db"]
-
-# Nueva dependencia: retorna directamente el objeto de base de datos
 def get_db():
     return db
