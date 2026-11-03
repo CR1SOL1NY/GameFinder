@@ -1,72 +1,86 @@
 from fastapi import APIRouter, Depends, HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
-from typing import List
-from datetime import datetime
-from pydantic import BaseModel, Field
+from datetime import datetime, timezone
+from pydantic import BaseModel, Field, ConfigDict
 from app.database import get_db
-
-# Definimos el esquema de Pydantic para cuando un usuario envíe una nueva reseña
+from app.models import Calificacion
+from typing import List
+# Esquema de entrada compatible con los campos reales de Atlas.
 class CalificacionCreate(BaseModel):
-    id_usuario: str
-    id_juego: str
+    usuarioId: str
+    juegoId: str
     puntaje: int = Field(ge=1, le=5, description="El puntaje debe ser entre 1 y 5")
     comentario: str
+    model_config = ConfigDict(populate_by_name=True)
 
-# Inicializamos el Router
 router = APIRouter(prefix="/calificaciones", tags=["Calificaciones"])
 
-@router.get("/juego/{juego_id}")
+@router.get("/juego/{juego_id}", response_model=List[Calificacion])
 async def obtener_calificaciones_juego(juego_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
-    """Obtiene todas las reseñas de un juego específico, ordenadas de la más reciente a la más antigua."""
+    """Obtiene todas las reseñas de un juego, de la más reciente a la más antigua."""
     if not ObjectId.is_valid(juego_id):
         raise HTTPException(status_code=400, detail="Formato de ID de juego inválido")
-    
-    # Buscamos las calificaciones usando la referencia (id_juego)
-    cursor = db.calificaciones.find({"id_juego": ObjectId(juego_id)}).sort("fecha", -1)
-    calificaciones_bd = await cursor.to_list(length=100) # Límite de 100 para no saturar
-    
-    # Formateamos la respuesta para convertir los ObjectId a string (evita errores de Pydantic/JSON)
-    resultado = []
+    cursor = db.calificaciones.find({"juegoId": ObjectId(juego_id)}).sort("fecha", -1)
+    calificaciones_bd = await cursor.to_list(length=100)
     for c in calificaciones_bd:
         c["_id"] = str(c["_id"])
-        c["id_usuario"] = str(c["id_usuario"])
-        c["id_juego"] = str(c["id_juego"])
-        resultado.append(c)
-        
-    return resultado
+        c["usuarioId"] = str(c["usuarioId"])
+        c["juegoId"] = str(c["juegoId"])
+    return calificaciones_bd
 
-@router.post("/")
+@router.post("/", response_model=Calificacion)
 async def crear_calificacion(calificacion: CalificacionCreate, db: AsyncIOMotorDatabase = Depends(get_db)):
-    """Permite a un usuario publicar una nueva reseña y puntaje para un juego."""
-    if not ObjectId.is_valid(calificacion.id_usuario) or not ObjectId.is_valid(calificacion.id_juego):
+    """Permite publicar una nueva reseña y puntaje para un juego."""
+    if not ObjectId.is_valid(calificacion.usuarioId) or not ObjectId.is_valid(calificacion.juegoId):
         raise HTTPException(status_code=400, detail="Formato de IDs inválidos")
-        
-    # 1. Validar que el usuario y el juego realmente existan en la base de datos
-    usuario_existe = await db.usuarios.find_one({"_id": ObjectId(calificacion.id_usuario)})
-    if not usuario_existe:
+    if not await db.usuarios.find_one({"_id": ObjectId(calificacion.usuarioId)}):
         raise HTTPException(status_code=404, detail="El usuario no existe")
-        
-    juego_existe = await db.juegos.find_one({"_id": ObjectId(calificacion.id_juego)})
-    if not juego_existe:
+    if not await db.juegos.find_one({"_id": ObjectId(calificacion.juegoId)}):
         raise HTTPException(status_code=404, detail="El juego no existe")
 
-    # 2. Construir el documento a insertar
     nueva_calificacion = {
-        "id_usuario": ObjectId(calificacion.id_usuario),
-        "id_juego": ObjectId(calificacion.id_juego),
+        "usuarioId": ObjectId(calificacion.usuarioId),
+        "juegoId": ObjectId(calificacion.juegoId),
         "puntaje": calificacion.puntaje,
         "comentario": calificacion.comentario,
-        "fecha": datetime.utcnow()
+        "fecha": datetime.now(timezone.utc),
+        "visible": True
     }
-    
-    # 3. Guardar en la base de datos
     resultado = await db.calificaciones.insert_one(nueva_calificacion)
-    
-    # 4. Recuperar el documento creado para devolverlo en la respuesta
-    calificacion_creada = await db.calificaciones.find_one({"_id": resultado.inserted_id})
-    calificacion_creada["_id"] = str(calificacion_creada["_id"])
-    calificacion_creada["id_usuario"] = str(calificacion_creada["id_usuario"])
-    calificacion_creada["id_juego"] = str(calificacion_creada["id_juego"])
-    
-    return calificacion_creada
+    creada = await db.calificaciones.find_one({"_id": resultado.inserted_id})
+    creada["_id"] = str(creada["_id"])
+    creada["usuarioId"] = str(creada["usuarioId"])
+    creada["juegoId"] = str(creada["juegoId"])
+    return creada
+
+@router.delete("/{calificacion_id}")
+async def eliminar_calificacion(
+    calificacion_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Elimina una calificación por su ID."""
+
+    # 1. Validar ObjectId
+    if not ObjectId.is_valid(calificacion_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Formato de ID inválido"
+        )
+
+    # 2. Eliminar calificación
+    resultado = await db.calificaciones.delete_one({
+        "_id": ObjectId(calificacion_id)
+    })
+
+    # 3. Verificar resultado
+    if resultado.deleted_count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="Calificación no encontrada"
+        )
+
+    return {
+        "mensaje": "Calificación eliminada exitosamente",
+        "calificacionId": calificacion_id
+    }

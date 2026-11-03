@@ -1,68 +1,69 @@
 from pydantic import BaseModel, Field, ConfigDict, BeforeValidator
 from typing import List, Optional, Annotated
-from datetime import datetime
+from datetime import datetime, timezone
 
 # --- TIPO PERSONALIZADO PARA MONGODB ---
-# Esta línea le enseña a Pydantic a convertir un ObjectId de Mongo a String
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
 # --- SUBDOCUMENTOS (Embebidos) ---
-
 class PrecioTienda(BaseModel):
-    nombre_tienda: str
+    tienda: str
     precio: float
     moneda: str = "CLP"
-    url_producto: str
-    fecha_actualizacion: datetime = Field(default_factory=datetime.now)
+    urlProducto: str
+    fechaActualizacion: Optional[datetime] = None
+
+class PrecioMasBarato(BaseModel):
+    precio: float
+    moneda: str = "CLP"
+    tienda: str
 
 class Preferencia(BaseModel):
-    precio_min: float = 0.0
-    precio_max: float
-    generos_preferidos: List[str] = []
-
-class JuegoDeseado(BaseModel):
-    id_juego: str
-    fecha_agregado: datetime = Field(default_factory=datetime.now)
+    precioMin: float = 0.0
+    precioMax: float = 999999.0
+    generos: List[str] = Field(default_factory=list)
 
 # --- COLECCIONES PRINCIPALES ---
-
 class Juego(BaseModel):
-    # Usamos PyObjectId en lugar de str
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     titulo: str
     descripcion: Optional[str] = None
-    fecha_lanzamiento: Optional[datetime] = None
+    fechaLanzamiento: Optional[datetime] = None
     desarrollador: Optional[str] = None
-    imagen_portada: Optional[str] = None
-    
-    generos: List[str] = []
-    plataformas: List[str] = []
-    
-    precio_mas_barato: Optional[float] = None
-    tiendas: List[PrecioTienda] = []
-
+    imagenPortada: Optional[str] = None
+    generos: List[str] = Field(default_factory=list)
+    plataformas: List[str] = Field(default_factory=list)
+    precios: List[PrecioTienda] = Field(default_factory=list)
+    precio_mas_barato: Optional[PrecioMasBarato] = None
+    activo: bool = True
     model_config = ConfigDict(populate_by_name=True)
 
 class Usuario(BaseModel):
-    # Usamos PyObjectId en lugar de str
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     nombre: str
     correo: str
-    contrasena_hash: str
-    fecha_registro: datetime = Field(default_factory=datetime.now)
-    
+    contrasenaHash: str
+    fechaRegistro: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     preferencias: Optional[Preferencia] = None
-    lista_deseados: List[JuegoDeseado] = []
-
+    listaDeseados: List[PyObjectId] = Field(default_factory=list)
     model_config = ConfigDict(populate_by_name=True)
 
 class Calificacion(BaseModel):
-    # Usamos PyObjectId en lugar de str
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
-    id_usuario: str
-    id_juego: str
+    usuarioId: PyObjectId
+    juegoId: Optional[PyObjectId] = None
     puntaje: int = Field(ge=1, le=5)
     comentario: Optional[str] = None
-    fecha: datetime = Field(default_factory=datetime.now)
+    fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    visible: bool = True
+    model_config = ConfigDict(populate_by_name=True)
 
+# Modelo público: nunca devolver hashes de contraseña al cliente.
+class UsuarioPublic(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    nombre: str
+    correo: str
+    fechaRegistro: datetime
+    preferencias: Optional[Preferencia] = None
+    listaDeseados: List[PyObjectId] = Field(default_factory=list)
     model_config = ConfigDict(populate_by_name=True)
