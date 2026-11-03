@@ -14,6 +14,11 @@ from pydantic import BaseModel, Field
 from app.database import get_db
 from app.security import get_current_user
 
+from fastapi import Request
+from app.limiter import limiter
+
+from app.security import crear_access_token
+
 router = APIRouter(prefix="/juegos", tags=["Juegos"])
 
 
@@ -76,10 +81,12 @@ def etapa_minimo():
 
 # --- CATÁLOGO ---
 @router.get("/")
+@limiter.limit("100/minute")
 async def listar_juegos(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
-    db: AsyncIOMotorDatabase = Depends(get_db),
+    request: Request,
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     pipeline = [
         {"$sort": {"_id": 1}},
