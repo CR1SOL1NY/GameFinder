@@ -23,7 +23,7 @@ GameFinder es una plataforma web de búsqueda, comparación de precios y recomen
 
 * **Backend:** Python, FastAPI, Pydantic v2 (para validación y serialización BSON/ObjectId).
 * **Base de Datos:** MongoDB (NoSQL) con Motor (Driver asíncrono).
-* **Infraestructura:** Despliegue de base de datos y backend en la plataforma en la nube Railway.
+* **Infraestructura:** Despliegue de base de datos en  Mongodb atlas y backend en la plataforma en la nube Vercel.
 * **Control de Versiones:** Git y GitHub.
 
 ## Estructura del Backend
