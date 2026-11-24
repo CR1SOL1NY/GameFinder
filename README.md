@@ -40,3 +40,12 @@ El backend ha sido refactorizado, moviendo la lógica de consultas de un archivo
    ```bash
    git clone [POR COMPLETAR - URL del repositorio de GitHub]
    cd gamefinder-backend
+
+   ```
+
+
+## Frontend integrado en una rama de trabajo
+
+La rama `funcionalidad/integracion-frontend` añade el frontend existente de GameFinder en `frontend/`, conservando su diseño, componentes y recursos. El backend original permanece en la raíz, sin sustituir `app/`, `main.py` ni `requirements.txt`.
+
+Para conectar todas las funciones del frontend se incorpora una entrada opcional `main_interfaz:app`, con el contrato compatible en `/interfaz` y el mismo cliente MongoDB del equipo. Consulta [instalación, origen y verificaciones](docs/INTEGRACION_FRONTEND.md). No se despliega ni se modifica Atlas al incorporar estos archivos.
