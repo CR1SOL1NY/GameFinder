@@ -17,3 +17,4 @@ coverage/
 .env.*
 !.env.example
 .pytest_cache/
+.venv-interfaz/
