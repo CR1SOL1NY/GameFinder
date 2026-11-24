@@ -8,3 +8,12 @@ env/
 # Archivos de caché de Python
 __pycache__/
 *.pyc
+# Herramientas del frontend
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.venv/
+.env.*
+!.env.example
+.pytest_cache/
