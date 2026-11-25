@@ -4,6 +4,9 @@ on:
     branches: ['funcionalidad/integracion-frontend']
   pull_request:
     paths:
+      - 'app/**'
+      - 'main.py'
+      - 'pytest.ini'
       - 'frontend/**'
       - 'integracion_frontend/**'
       - 'pruebas_interfaz/**'

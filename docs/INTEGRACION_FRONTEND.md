@@ -2,7 +2,7 @@
 
 La rama `funcionalidad/integracion-frontend` incorpora el frontend existente en el repositorio `CR1SOL1NY/GameFinder`. El diseño, las vistas, componentes, servicios de React y recursos públicos se conservan del estado `64326ce25eb4a201d8117f6195e7f7d6d66bad2b` de `xSeVeN-bot/gamefinder`. El archivo `origen-frontend.json` registra los hashes SHA-256 de esos archivos para comprobar que no fueron rediseñados.
 
-La base del repositorio del equipo es `eda69a2f4697934968605d00372c8c18e6bdec18`. Se inspeccionaron `main`, `Actualizacion_entrega2`, `feature/migracion-mongodb` y `prueba_conexion_bd`: las actualizaciones de la entrega 2 ya están integradas en `main`. Los archivos de `app/`, `main.py` y `requirements.txt` de esa base se conservan íntegros.
+La base del repositorio del equipo es `eda69a2f4697934968605d00372c8c18e6bdec18`. Se inspeccionaron `main`, `Actualizacion_entrega2`, `feature/migracion-mongodb` y `prueba_conexion_bd`: las actualizaciones de la entrega 2 ya están integradas en `main`. Los cinco commits iniciales conservaron íntegros `app/`, `main.py` y `requirements.txt`. La revisión posterior de [permisos del backend](SEGURIDAD_BACKEND.md) modifica deliberadamente la autorización de las rutas originales; `requirements.txt` se conserva.
 
 ## Entregas por etapas
 
@@ -17,7 +17,7 @@ Los commits describen la integración de código existente, no un desarrollo des
 ## Estructura
 
 ```text
-main.py, app/, requirements.txt  Backend original del equipo, sin sustituciones
+main.py, app/, requirements.txt  Backend del equipo, con permisos corregidos
 main_interfaz.py                Entrada opcional para ejecutar ambos contratos
 integracion_frontend/           Contrato que consume el frontend existente
 frontend/                       React + TypeScript + Vite + Tailwind v4
@@ -28,7 +28,7 @@ scripts/preparar_indices_interfaz.py  Preparación opcional y explícita de índ
 
 ## Por qué hay una capa de compatibilidad
 
-El backend del equipo no expone todos los contratos que utiliza el frontend actual: faltan, entre otros, `/juegos/catalogo`, `/usuarios/me`, logout, edición de perfil y reseñas privadas, y difieren el registro y la sesión. Su registro espera `contrasenaHash`; el frontend envía una contraseña al servidor para que la cifre. Cambiar nombres de rutas no resuelve esas diferencias y no se trasladó el hash al navegador.
+El backend del equipo no expone todos los contratos que utiliza el frontend actual: faltaban, entre otros, `/juegos/catalogo`, `/usuarios/me`, logout, edición de perfil y reseñas privadas, y difieren el registro y la sesión. Su registro espera `contrasenaHash`; el frontend envía una contraseña al servidor para que la cifre. Cambiar nombres de rutas no resuelve esas diferencias y no se trasladó el hash al navegador.
 
 `main_interfaz.py` importa la aplicación original y monta el contrato compatible bajo **`/interfaz`**. Este utiliza directamente el mismo `client`, `db` y `get_db` de `app.database`. Es un único proceso FastAPI y la misma base MongoDB, sin Express, sin una segunda conexión de aplicación ni sustitución de los routers originales. Seguir usando `uvicorn main:app` conserva la entrada anterior sin este montaje.
 
@@ -76,7 +76,7 @@ La herramienta opcional se consulta desde la **terminal del BACKEND**, sin escri
 
 Si el equipo decide aplicar esa preparación a su base, la misma herramienta admite `--aplicar`. Esa opción **sí crea índices** y debe ejecutarse como una operación de base de datos deliberada, con respaldo y revisión del equipo. No se ejecutó sobre Atlas durante esta entrega. No elimina datos ni reemplaza índices incompatibles; un conflicto requiere revisión.
 
-Las rutas heredadas mantienen sus reglas y permisos actuales. Deben revisarse su autorización, privacidad y operaciones de escritura antes de publicar todo el backend. La seguridad del contrato nuevo no cambia automáticamente la de rutas antiguas. No se desplegó la aplicación ni se accedió a Atlas en esta integración.
+Las rutas heredadas ahora aplican la [política de autorización documentada](SEGURIDAD_BACKEND.md): titularidad, roles administrativos y sesiones revocables compartidas. Los tokens antiguos sin `jti` requieren iniciar sesión nuevamente. La prueba con una base Atlas separada y la preparación de producción siguen pendientes. No se desplegó la aplicación ni se accedió a Atlas.
 
 ## Verificaciones
 
@@ -95,12 +95,12 @@ En la **terminal del BACKEND**, desde la raíz:
 .\.venv-interfaz\Scripts\python.exe scripts\probar_integracion.py
 ```
 
-Se ejecutaron localmente **81 pruebas DOM del frontend, 83 pruebas de la API integrada y su montaje, 10 flujos React → HTTP → FastAPI y la compilación TypeScript/Vite**. La base usada en esas pruebas es emulada y descartable. El montaje comprueba que el cliente MongoDB sea compartido y que las rutas originales y el nuevo prefijo coexistan. No se probó la conexión con el Atlas real ni se certifica el aspecto final en un motor de navegador a distintas resoluciones.
+Se ejecutaron localmente **81 pruebas DOM del frontend, 83 pruebas iniciales de la API integrada y su montaje, 10 flujos React → HTTP → FastAPI y la compilación TypeScript/Vite**. La base usada en esas pruebas es emulada y descartable. El montaje comprueba que el cliente MongoDB sea compartido y que las rutas originales y el nuevo prefijo coexistan. No se probó la conexión con el Atlas real ni se certifica el aspecto final en un motor de navegador a distintas resoluciones.
 
 También se inició Vite realmente en una prueba HTTP aislada: sirvió el HTML y TypeScript, reenvió `/api/juegos/catalogo` a `/interfaz/juegos/catalogo` y recibió 401 al consultar un perfil sin sesión. Esto comprueba el proxy de desarrollo; no sustituye una prueba visual en navegador.
 
-La configuración de GitHub Actions permite repetir las comprobaciones al subir la rama. Sus resultados remotos dependen de que la conexión tenga permisos para crear y actualizar esa rama; las pruebas locales no se presentan como ejecuciones remotas de GitHub.
+La configuración de GitHub Actions repite las comprobaciones al subir la rama y en pull requests que afecten al frontend o a cualquiera de las APIs. La revisión de permisos añade 45 pruebas aisladas de las rutas originales; consulta el alcance y los límites en [SEGURIDAD_BACKEND.md](SEGURIDAD_BACKEND.md).
 
 ## Publicación futura
 
-`frontend/vercel.json` es una plantilla: su destino `gamefinder-api.example.com` debe sustituirse por la URL pública real del backend más `/interfaz`. Antes de publicar, configura HTTPS, cookies seguras, los orígenes autorizados y realiza la revisión pendiente de las rutas heredadas. Los comandos de ejecución local y el proxy de Vite no publican el proyecto.
+`frontend/vercel.json` es una plantilla: su destino `gamefinder-api.example.com` debe sustituirse por la URL pública real del backend más `/interfaz`. Antes de publicar, configura HTTPS, cookies seguras, los orígenes autorizados y verifica el conjunto con una base Atlas separada de pruebas. Los comandos de ejecución local y el proxy de Vite no publican el proyecto.

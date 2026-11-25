@@ -46,6 +46,13 @@ El backend ha sido refactorizado, moviendo la lógica de consultas de un archivo
 
 ## Frontend integrado en una rama de trabajo
 
-La rama `funcionalidad/integracion-frontend` añade el frontend existente de GameFinder en `frontend/`, conservando su diseño, componentes y recursos. El backend original permanece en la raíz, sin sustituir `app/`, `main.py` ni `requirements.txt`.
+La rama `funcionalidad/integracion-frontend` añade el frontend existente de GameFinder en `frontend/`, conservando su diseño, componentes y recursos. El backend del equipo permanece en la raíz. La integración inicial conservó sus archivos; la revisión posterior corrige sus permisos sin sustituir su arquitectura ni modificar `requirements.txt`.
 
 Para conectar todas las funciones del frontend se incorpora una entrada opcional `main_interfaz:app`, con el contrato compatible en `/interfaz` y el mismo cliente MongoDB del equipo. Consulta [instalación, origen y verificaciones](docs/INTEGRACION_FRONTEND.md). No se despliega ni se modifica Atlas al incorporar estos archivos.
+
+
+## Permisos del backend: paso 1
+
+Las rutas originales ahora verifican titularidad de cuentas/reseñas y reservan las escrituras de catálogo, ofertas y tiendas a administradores. Ambas APIs utilizan sesiones revocables: cerrar sesión impide reutilizar el token en cualquiera de ellas. Los tokens antiguos sin `jti` requieren iniciar sesión nuevamente.
+
+Consulta [política, compatibilidad, pruebas y límites](docs/SEGURIDAD_BACKEND.md). Esta etapa añade 45 pruebas aisladas y no modifica Atlas ni publica la aplicación. El siguiente paso es verificar el conjunto con una base Atlas separada de pruebas. La descripción inicial del proyecto expresa sus objetivos; el alcance realmente implementado y verificado se detalla en [la documentación de integración](docs/INTEGRACION_FRONTEND.md).
