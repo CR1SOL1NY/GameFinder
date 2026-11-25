@@ -1,5 +1,6 @@
 """Autorización de la API original, con documentos sintéticos en una BD aislada."""
 from datetime import datetime, timedelta, timezone
+import os
 
 import bcrypt
 import httpx
@@ -306,3 +307,30 @@ async def test_registro_original_no_permite_elegir_rol_admin(original_env):
     stored = await db.usuarios.find_one({'correo': 'nuevo@example.com'})
     assert stored['rol'] == 'usuario' and stored['activo'] is True
     assert 'contrasenaHash' not in result.json()
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(os.getenv('GAMEFINDER_MONGODB_REAL') != '1' and not os.getenv('TEST_MONGODB_URI'),
+                    reason='Requiere MongoDB real: mongomock no ejecuta $sortArray')
+async def test_pipelines_originales_escriben_y_recalculan_precios_reales(original_env):
+    client, db, _, gid, tid, users = original_env
+    admin_headers = auth(users['admin'])
+    second = ObjectId()
+    await db.tiendas.insert_one({'_id': second, 'nombre': 'Segunda tienda sintética'})
+    path = f'/juegos/{gid}/tiendas'
+    for store_id, price in [(tid, 12000), (str(second), 9000)]:
+        result = await client.post(path, json={'tiendaId': store_id, 'precio': price, 'urlProducto': 'https://example.com/prueba'}, headers=admin_headers)
+        assert result.status_code == 201, result.text
+    stored = await db.juegos.find_one({'_id': ObjectId(gid)})
+    assert len(stored['precios']) == 2 and stored['precio_mas_barato']['precio'] == 9000
+    assert stored['precio_mas_barato']['tiendaId'] == second
+    updated = await client.put(f'{path}/{tid}', json={'precio': 7000}, headers=admin_headers)
+    assert updated.status_code == 200, updated.text
+    stored = await db.juegos.find_one({'_id': ObjectId(gid)})
+    assert stored['precio_mas_barato']['precio'] == 7000 and stored['precio_mas_barato']['tiendaId'] == ObjectId(tid)
+    assert all(p.get('fechaActualizacion') is not None for p in stored['precios'])
+    assert (await client.delete(f'{path}/{tid}', headers=admin_headers)).status_code == 200
+    assert (await db.juegos.find_one({'_id': ObjectId(gid)}))['precio_mas_barato']['precio'] == 9000
+    assert (await client.delete(f'{path}/{second}', headers=admin_headers)).status_code == 200
+    stored = await db.juegos.find_one({'_id': ObjectId(gid)})
+    assert stored['precios'] == [] and stored['precio_mas_barato'] is None

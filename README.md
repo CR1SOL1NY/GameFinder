@@ -56,3 +56,8 @@ Para conectar todas las funciones del frontend se incorpora una entrada opcional
 Las rutas originales ahora verifican titularidad de cuentas/reseñas y reservan las escrituras de catálogo, ofertas y tiendas a administradores. Ambas APIs utilizan sesiones revocables: cerrar sesión impide reutilizar el token en cualquiera de ellas. Los tokens antiguos sin `jti` requieren iniciar sesión nuevamente.
 
 Consulta [política, compatibilidad, pruebas y límites](docs/SEGURIDAD_BACKEND.md). Esta etapa añade 45 pruebas aisladas y no modifica Atlas ni publica la aplicación. El siguiente paso es verificar el conjunto con una base Atlas separada de pruebas. La descripción inicial del proyecto expresa sus objetivos; el alcance realmente implementado y verificado se detalla en [la documentación de integración](docs/INTEGRACION_FRONTEND.md).
+
+
+## Verificación de MongoDB y Atlas: paso 2
+
+Se añadieron un diagnóstico sin escrituras y un ejecutor de pruebas con una base vacía exclusiva, configurada mediante `.env.pruebas`. La suite se verificó con MongoDB 8.0.4 real local: 154 pruebas de backend y 10 recorridos HTTP aprobados. La conexión al Atlas del equipo sigue pendiente de configurar; no se modificaron sus datos. Consulta [preparación de Atlas y comandos para VS Code](docs/PRUEBAS_MONGODB_ATLAS.md).

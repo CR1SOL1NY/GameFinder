@@ -1,4 +1,4 @@
-"""API HTTP exclusiva para las pruebas React. Persistencia EMULADA y descartable.
+"""API HTTP exclusiva para las pruebas React. Persistencia emulada por defecto; MongoDB real exige una base reclamada de pruebas.
 Nunca usar este módulo como entrypoint de producción.
 """
 import os
@@ -13,8 +13,8 @@ os.environ['CORS_ORIGINS'] = 'http://localhost:5173,http://127.0.0.1:5173'
 if os.getenv('TEST_MONGODB_URI') and not os.environ['TEST_MONGODB_URI'].startswith(('mongodb://127.0.0.1:', 'mongodb://localhost:')):
     raise RuntimeError('TEST_MONGODB_URI debe apuntar a MongoDB local; nunca a Atlas')
 os.environ['JWT_SECRET_KEY'] = 'clave-exclusiva-para-pruebas-http-1234567890'
-os.environ['MONGO_URL'] = 'mongodb://127.0.0.1:27017/?directConnection=true'
-os.environ.pop('MONGODB_URI', None)
+from pruebas_interfaz.mongodb_real import configurar_conexion_aplicacion
+configurar_conexion_aplicacion()
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from mongomock_motor import AsyncMongoMockClient
@@ -24,6 +24,10 @@ from main_interfaz import app
 from integracion_frontend.aplicacion import app as api_interfaz
 from integracion_frontend.database import get_db, crear_indices
 from integracion_frontend.limiter import limiter
+from pruebas_interfaz.mongodb_real import conectar_pruebas, limpiar_colecciones
+
+isolated = os.getenv('GAMEFINDER_MONGODB_REAL') == '1'
+owner_token = None
 
 if os.getenv('TEST_MONGODB_URI'):
     from motor.motor_asyncio import AsyncIOMotorClient
@@ -37,8 +41,11 @@ app.dependency_overrides[get_db]=lambda:db
 api_interfaz.dependency_overrides[get_db]=lambda:db
 
 async def reset():
-    for name in await db.list_collection_names():
-        await db[name].delete_many({})
+    if isolated:
+        await limpiar_colecciones(db, owner_token)
+    else:
+        for name in await db.list_collection_names():
+            await db[name].delete_many({})
     await crear_indices(db)
     # Cuenta administrativa exclusiva de esta base descartable, nunca del producto.
     import bcrypt
@@ -84,14 +91,24 @@ async def reset():
 
 @asynccontextmanager
 async def lifespan(application):
-    if mongo_client is not None:
-        await mongo_client.admin.command('ping')
-    await reset()
-    yield
-    if mongo_client is not None:
-        assert db.name.startswith('gamefinder_test_http_')
-        await mongo_client.drop_database(db.name)
-        mongo_client.close()
+    global mongo_client, db, owner_token
+    if isolated:
+        mongo_client, db, owner_token = await conectar_pruebas()
+    try:
+        if mongo_client is not None:
+            await mongo_client.admin.command('ping')
+        await reset()
+        yield
+    finally:
+        if mongo_client is not None:
+            try:
+                if isolated:
+                    await limpiar_colecciones(db, owner_token)
+                else:
+                    assert db.name.startswith('gamefinder_test_http_')
+                    await mongo_client.drop_database(db.name)
+            finally:
+                mongo_client.close()
 app.router.lifespan_context=lifespan
 
 @api_interfaz.post('/__tests__/reset', include_in_schema=False)
