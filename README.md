@@ -60,4 +60,4 @@ Consulta [política, compatibilidad, pruebas y límites](docs/SEGURIDAD_BACKEND.
 
 ## Verificación de MongoDB y Atlas: paso 2
 
-Se añadieron un diagnóstico sin escrituras y un ejecutor de pruebas con una base vacía exclusiva, configurada mediante `.env.pruebas`. La suite se verificó con MongoDB 8.0.4 real local: 154 pruebas de backend y 10 recorridos HTTP aprobados. La conexión al Atlas del equipo sigue pendiente de configurar; no se modificaron sus datos. Consulta [preparación de Atlas y comandos para VS Code](docs/PRUEBAS_MONGODB_ATLAS.md).
+Se añadieron un diagnóstico sin escrituras y un ejecutor de pruebas con una base vacía exclusiva, configurada mediante `.env.pruebas`. La suite se verificó con MongoDB 8.0.4 real local: 154 pruebas de backend y 10 recorridos HTTP aprobados. El usuario de Atlas `gamefinder_pruebas_user` ya está creado con `readWrite` solo sobre `gamefinder_pruebas`. La suite de FastAPI contra Atlas sigue pendiente por conectividad del entorno; no se modificaron los datos de la base actual. Consulta [preparación de Atlas y comandos para VS Code](docs/PRUEBAS_MONGODB_ATLAS.md).

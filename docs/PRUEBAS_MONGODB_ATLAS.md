@@ -1,6 +1,6 @@
 # Paso 2: comprobar MongoDB real y preparar Atlas
 
-Estado: **verificación con MongoDB real local realizada; conexión a Atlas pendiente de configurar**. No se ha accedido a Atlas ni modificado la base `GameFinder`.
+Estado: **MongoDB real local verificado; usuario de pruebas de Atlas creado; suite de FastAPI contra Atlas pendiente por conectividad del entorno**. Se accedió al clúster mediante el conector autorizado, sin modificar la base `GameFinder`.
 
 ## Qué se comprobó aquí
 
@@ -10,13 +10,23 @@ Esto incluye los pipelines originales de creación, actualización y eliminació
 
 También se comprobó con ese servidor que el diagnóstico no escriba, que la ejecución rechace una base ocupada sin alterarla y que se rechacen `GameFinder` y `admin` antes de conectarse. GitHub Actions incorpora un trabajo independiente con MongoDB 8.0.4 en un contenedor descartable; los otros trabajos mantienen la emulación en Windows y Linux.
 
-Esto todavía **no verifica** las credenciales de Atlas, su lista de acceso por IP, TLS/DNS de ese servicio, permisos del usuario remoto ni los documentos del catálogo existente. Tampoco es una prueba visual del navegador.
+## Preparación realizada en Atlas el 25 de noviembre de 2026
+
+Se identificó el clúster existente `GameFinder` y se creó `gamefinder_pruebas_user` con **un solo rol `readWrite` sobre `gamefinder_pruebas`**, limitado a ese clúster. La configuración se volvió a consultar en Atlas para verificarla. Los usuarios anteriores permanecen sin cambios.
+
+Atlas generó la contraseña. La URI se guardó únicamente en `.env.pruebas`, con permisos de archivo `0600` e ignorada por Git. No se versionaron contraseñas ni cadenas de conexión privadas. Ese archivo pertenece al entorno donde se realizó la preparación; debe guardarse de forma privada en el computador que vaya a ejecutar las pruebas.
+
+El conector autorizado se conectó al clúster y comprobó que el destino de pruebas no tenía colecciones. Se creó una colección temporal vacía de verificación y se retiró después. El destino vuelve a tener cero colecciones y no se copió ningún documento del catálogo. MongoDB no muestra la base vacía en su listado; aparecerá al realizar la primera escritura de las pruebas. No hace falta dejar una colección de preparación que bloquearía el ejecutor.
+
+La conexión de Python desde este entorno **no quedó validada**: la resolución DNS local devuelve que no existe el registro SRV, aunque un resolvedor DNS público sí lo encuentra. Un diagnóstico de solo lectura con la dirección estándar de Atlas y TLS habilitado terminó en `ServerSelectionTimeoutError`. No se amplió la lista de IP de Atlas ni se deshabilitó TLS. La autenticación del usuario nuevo desde Motor y la suite completa contra Atlas siguen pendientes; el acceso del conector no se presenta como prueba de acceso desde Python.
+
+Los permisos anteriores se verificaron mediante la API de administración, no mediante consultas a documentos de la base actual. Tampoco se verificaron los documentos del catálogo existente ni el aspecto de la aplicación en un navegador. El siguiente intento debe hacerse desde un equipo con DNS y conectividad a Atlas, y con su IP autorizada, siguiendo los comandos de diagnóstico de esta guía.
 
 ## 1. Preparar un destino exclusivo en Atlas
 
 Puede utilizarse el mismo clúster, con una base nueva y separada llamada **`gamefinder_pruebas`**. Si ese nombre ya contiene colecciones, utiliza otro nombre nuevo como `gamefinder_pruebas_entrega2`; el script no vacía destinos ocupados.
 
-En **Database Access**, crea un usuario exclusivo para pruebas. Configura el privilegio **`readWrite` únicamente sobre esa base**, para todas sus colecciones. No uses el usuario de la aplicación ni el rol que permite escribir en todas las bases. No cambies las credenciales ni los permisos actuales del proyecto.
+El usuario `gamefinder_pruebas_user` ya está creado. Si estás preparando otro destino, en **Database Access** crea un usuario exclusivo para él. Configura el privilegio **`readWrite` únicamente sobre esa base**, para todas sus colecciones. No uses el usuario de la aplicación ni el rol que permite escribir en todas las bases. No cambies las credenciales ni los permisos actuales del proyecto.
 
 En **Network Access**, autoriza la IP del equipo que ejecutará las pruebas. Si ejecutas el comando en tu VS Code, utiliza la IP de ese computador. Conserva las entradas que ya necesita el proyecto.
 
