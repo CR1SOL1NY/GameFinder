@@ -19,7 +19,8 @@ export default function App() {
   const route=useRoute();
   const catalogReturn=useRef('/catalogo');
   useEffect(()=>{if(route.view==='results'||route.view==='offers')catalogReturn.current=location.pathname+location.search;},[route.view,route.search.toString()]);
-  const [query,setQuery]=useState(route.search.get('q')||'');
+  const appliedQuery=route.search.get('q')||'';
+  const [query,setQuery]=useState(appliedQuery);
   const [user,setUser]=useState<Usuario|null>(null),[checkingSession,setCheckingSession]=useState(true);
   const userRef=useRef<Usuario|null>(null);userRef.current=user;
   const [games,setGames]=useState<Game[]>([]),[catalogError,setCatalogError]=useState(''),[loadingCatalog,setLoadingCatalog]=useState(true),[reload,setReload]=useState(0);
@@ -29,12 +30,22 @@ export default function App() {
   const closeAuth=useCallback(()=>setAuth(null),[]);
   const [theme,setTheme]=useState<'dark'|'light'>(()=>{try{return localStorage.getItem('gf-theme')==='light'?'light':'dark';}catch{return 'dark';}});
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gf-theme',theme);}catch{/* Navegación privada sin almacenamiento */}},[theme]);
-  useEffect(()=>{setQuery(route.search.get('q')||'');},[route.search.toString()]);
+  useEffect(()=>{setQuery(appliedQuery);},[appliedQuery,route.view]);
   useEffect(()=>{window.scrollTo(0,0);const titles:Record<View,string>={home:'Descubre y compara videojuegos',results:'Catálogo',offers:'Ofertas',detail:'Ficha del videojuego',profile:'Mi cuenta',admin:'Administración',notfound:'Página no encontrada'};document.title=`${titles[route.view]} · GameFinder`;},[route.view,route.gameId,route.section]);
   useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),5500);return()=>clearTimeout(t);},[toast]);
   useEffect(()=>{setSessionExpiredHandler(()=>{setUser(null);setToast('Tu sesión expiró. Inicia sesión nuevamente.');});const c=new AbortController();miPerfil(c.signal).then(setUser).catch(e=>{if(!c.signal.aborted&&!(e instanceof ApiError&&e.status===401))setToast(errorMessage(e));}).finally(()=>{if(!c.signal.aborted)setCheckingSession(false);});return()=>{c.abort();setSessionExpiredHandler(()=>{});};},[]);
   useEffect(()=>{if(route.view!=='home')return;const c=new AbortController();setLoadingCatalog(true);setCatalogError('');obtenerCatalogo({sort:'fecha'},c.signal).then(p=>setGames(p.items)).catch(e=>{if(!c.signal.aborted)setCatalogError(errorMessage(e));}).finally(()=>{if(!c.signal.aborted)setLoadingCatalog(false);});return()=>c.abort();},[route.view,reload]);
   const go=(view:View,section?:Section)=>route.navigate(pathFor(view,section));
+  function searchCatalog(){
+    const inCatalog=route.view==='results'||route.view==='offers';
+    const params=new URLSearchParams(inCatalog?route.search:undefined);
+    params.delete('pagina');
+    const text=query.trim();
+    if(text)params.set('q',text);else params.delete('q');
+    setQuery(text);
+    const search=params.toString();
+    route.navigate(`${route.view==='offers'?'/ofertas':'/catalogo'}${search?`?${search}`:''}`);
+  }
   const openGame=(id:string)=>route.navigate(`/juegos/${encodeURIComponent(id)}`);
   function compareGame(game:Game){
     if(user&&!recordComparison(user._id,game.id))setToast('Abrimos el comparador, pero no pudimos guardar la actividad en este navegador.');
@@ -53,7 +64,7 @@ export default function App() {
   async function confirmLogin(actual:Usuario){setUser(actual);userRef.current=actual;const next=auth?.then;setAuth(null);setToast('Sesión iniciada correctamente');if(next)await next(actual);}
   const wishlist=user?.listaDeseados?.map(d=>d.juegoId)||[];
   return <StoreContext.Provider value={{user,wishlist,pendingWish,toggleWish,clearWish,openGame,compareGame,notify:setToast,requireLogin,refreshUser,setUser,logout}}><CatalogContext.Provider value={games}>
-    <div className="min-h-screen bg-app pb-24 text-fg md:pb-0"><a href="#main" className="skip-link">Saltar al contenido</a><Header view={route.view} section={route.section} query={query} setQuery={setQuery} onSearch={()=>route.navigate(`/catalogo${query.trim()?`?q=${encodeURIComponent(query.trim())}`:''}`)} go={go} loggedIn={!!user} name={user?.nombre||''} wishCount={wishlist.length}/><MobileNav view={route.view} section={route.section} go={go} wishCount={wishlist.length}/>
+    <div className="min-h-screen bg-app pb-24 text-fg md:pb-0"><a href="#main" className="skip-link">Saltar al contenido</a><Header view={route.view} section={route.section} query={query} setQuery={setQuery} onSearch={searchCatalog} go={go} loggedIn={!!user} name={user?.nombre||''} wishCount={wishlist.length}/><MobileNav view={route.view} section={route.section} go={go} wishCount={wishlist.length}/>
       <Suspense fallback={<Loading/>}>
         {route.view==='home'&&(loadingCatalog?<Loading text="Cargando videojuegos…"/>:catalogError?<main id="main" className="mx-auto max-w-3xl px-4 py-8"><ErrorState message={catalogError} retry={()=>setReload(n=>n+1)}/></main>:games.length?<div id="main"><Home openResults={()=>go('results')} openOffers={()=>go('offers')}/></div>:<main id="main" className="mx-auto max-w-3xl px-4 py-8"><Empty title="El catálogo está vacío" text="Todavía no hay videojuegos disponibles." action={()=>setReload(n=>n+1)} label="Volver a consultar"/></main>)}
         {(route.view==='results'||route.view==='offers')&&<Catalog search={route.search} navigate={route.navigate} priced={route.view==='offers'}/>}
