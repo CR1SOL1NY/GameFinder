@@ -88,13 +88,13 @@ La verificación automatizada del paso 2 utilizó una base separada. Las restric
 
 Configurar el proyecto de Vercel con **Root Directory `frontend`**, framework Vite, instalación `npm ci`, compilación `npm run build` y salida `dist`. El navegador debe continuar usando `VITE_API_URL=/api`.
 
-Antes de publicar o actualizar el frontend, sustituir el destino de ejemplo que todavía está en `frontend/vercel.json` por la URL ya verificada de Render:
+La regla de `frontend/vercel.json` envía las solicitudes del navegador al backend público de Render.
 
 ```json
 {"source":"/api/:path*","destination":"https://gamefinder-api-uo0o.onrender.com/interfaz/:path*"}
 ```
 
-Conservar la regla SPA hacia `/index.html`, el prefijo `/interfaz` y las cabeceras de seguridad. `CORS_ORIGINS` sigue vacío: completar esa variable con el dominio real y confirmado de Vercel antes de probar las sesiones públicas. Revisar cualquier proyecto Vercel existente antes de cambiarle el directorio raíz o sus variables. Este registro del backend no modifica ni publica el frontend.
+Conservar la regla SPA hacia `/index.html`, el prefijo `/interfaz` y las cabeceras de seguridad. `CORS_ORIGINS` sigue vacío: completar esa variable con el dominio real y confirmado de Vercel antes de probar las sesiones públicas. Revisar cualquier proyecto Vercel existente antes de cambiarle el directorio raíz o sus variables.
 
 ## Comprobaciones de la imagen
 
