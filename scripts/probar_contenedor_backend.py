@@ -82,7 +82,9 @@ def main():
                     status, _, content = request('/interfaz/health/db')
                     if status == 200:
                         break
-                except (URLError, TimeoutError):
+                except (URLError, OSError):
+                    # El puerto publicado puede cerrarse/resetearse mientras
+                    # Uvicorn todavía está arrancando dentro del contenedor.
                     pass
                 time.sleep(0.25)
             else:
