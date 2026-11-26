@@ -22,4 +22,4 @@ npm.cmd test
 npm.cmd run build
 ```
 
-Consulta [la guía de integración](../docs/INTEGRACION_FRONTEND.md) para instalación del backend, pruebas completas, origen del código y límites. Antes de publicar en Vercel se debe sustituir el dominio de ejemplo de `vercel.json` por la API pública real, conservando `/interfaz`.
+Consulta [la guía de integración](../docs/INTEGRACION_FRONTEND.md) para instalación del backend, pruebas completas, origen del código y límites. Configura el directorio raíz de Vercel como `frontend` para que use la regla de `vercel.json` y reenvíe `/api` al backend de Render.

@@ -113,4 +113,4 @@ La configuración de GitHub Actions repite las comprobaciones al subir la rama y
 
 ## Publicación futura
 
-`frontend/vercel.json` es una plantilla: su destino `gamefinder-api.example.com` debe sustituirse por la URL pública real del backend más `/interfaz`. Antes de publicar, configura HTTPS, cookies seguras, los orígenes autorizados y verifica el conjunto con una base Atlas separada de pruebas. Los comandos de ejecución local y el proxy de Vite no publican el proyecto.
+Vercel usa la regla de `frontend/vercel.json` para reenviar `/api` al contrato `/interfaz` de GameFinder en Render. Antes de publicar, configura HTTPS, cookies seguras, los orígenes autorizados y verifica el conjunto con una base Atlas separada de pruebas. Los comandos de ejecución local y el proxy de Vite no publican el proyecto.
