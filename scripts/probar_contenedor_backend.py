@@ -68,9 +68,14 @@ def main():
             binding = docker('port', backend, '8187/tcp').stdout.strip()
             base = 'http://' + binding
 
-            def request(path, method='GET', headers=None):
+            def request(path, method='GET', headers=None, body=None):
+                request_headers = dict(headers or {})
+                data = None
+                if body is not None:
+                    data = json.dumps(body).encode()
+                    request_headers['Content-Type'] = 'application/json'
                 try:
-                    response = opener.open(Request(base + path, method=method, headers=headers or {}), timeout=5)
+                    response = opener.open(Request(base + path, method=method, headers=request_headers, data=data), timeout=5)
                 except HTTPError as error:
                     response = error
                 with response:
@@ -105,6 +110,27 @@ def main():
             expect(request('/interfaz/usuarios/login', method='OPTIONS', headers={
                 'Origin': 'https://otro-dominio.example.com', 'Access-Control-Request-Method': 'POST',
             })[0] == 400, 'CORS permitió un dominio ajeno')
+
+            # Cuenta sintética solo en el MongoDB descartable de este contenedor.
+            password = secrets.token_urlsafe(24)
+            status, _, content = request('/interfaz/usuarios/', method='POST', headers={'Origin': origin}, body={
+                'nombre': 'Persona de prueba del contenedor',
+                'correo': 'contenedor@example.com', 'contrasena': password,
+            })
+            expect(status == 201 and 'contrasenaHash' not in json.loads(content), 'El registro de producción no respondió correctamente')
+            status, headers, content = request('/interfaz/usuarios/login', method='POST', headers={'Origin': origin}, body={
+                'correo': 'contenedor@example.com', 'contrasena': password,
+            })
+            cookie = headers.get('Set-Cookie', '').lower()
+            expect(status == 200 and 'httponly' in cookie and 'secure' in cookie and 'samesite=lax' in cookie,
+                   'El login no emitió la cookie segura de producción')
+            auth = {'Authorization': 'Bearer ' + json.loads(content)['access_token'], 'Origin': origin}
+            status, _, content = request('/interfaz/usuarios/me', headers=auth)
+            expect(status == 200 and json.loads(content)['correo'] == 'contenedor@example.com', 'No se validó la sesión de producción')
+            expect(request('/interfaz/tiendas/', method='POST', headers=auth, body={'nombre': 'Tienda sintética'})[0] == 403,
+                   'Un usuario normal obtuvo acceso administrativo')
+            expect(request('/interfaz/usuarios/logout', method='POST', headers=auth)[0] == 200, 'No se pudo cerrar la sesión')
+            expect(request('/interfaz/usuarios/me', headers=auth)[0] == 401, 'Se reutilizó una sesión cerrada')
             uid = docker('exec', backend, 'id', '-u').stdout.strip()
             expect(uid == '10001', 'La API se está ejecutando como root')
             result = docker('exec', backend, 'python', '-c',
