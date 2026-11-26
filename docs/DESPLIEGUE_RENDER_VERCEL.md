@@ -1,8 +1,43 @@
 # Publicación de GameFinder: Render y Vercel
 
-La configuración prepara FastAPI para Render y conserva React/Vite para Vercel. Se trabaja en `infraestructura/preparacion-despliegue`, basada en `main` después de fusionar la PR #12. No se ha aplicado un despliegue ni ampliado la lista de acceso de Atlas.
+FastAPI está publicado en Render y conectado a MongoDB Atlas. React/Vite conserva su configuración para Vercel; completar y verificar esa conexión es el siguiente paso. La preparación original de `infraestructura/preparacion-despliegue` y las correcciones de búsqueda ya están fusionadas en `main`.
 
 El usuario eligió **Render** y confirmó el workspace **GameFinder**, que ya aparece en la conexión autorizada. No utilizar el workspace personal para crear el servicio.
+
+## Backend publicado: 26 de noviembre de 2026
+
+| Dato | Valor verificado |
+| --- | --- |
+| URL pública | https://gamefinder-api-uo0o.onrender.com |
+| Documentación del contrato del frontend | https://gamefinder-api-uo0o.onrender.com/interfaz/docs |
+| Servicio | `gamefinder-api-uo0o` (`srv-dc4b2m59el5s73aot390`) |
+| Workspace | `GameFinder` |
+| Plan y región | `free`, `virginia` |
+| Commit desplegado | `7424e1b2f66db4ec770a4643736eab4605253d1c` |
+| Despliegue | `dep-dc4b2ml9el5s73aot4u0`, estado `live` confirmado por Render |
+| Blueprint | `exs-dc4b0761egvs73frv6d0`, sincronización automática desactivada |
+| Comprobación de salud | `/interfaz/health/db` |
+
+El [servicio en Render](https://dashboard.render.com/web/srv-dc4b2m59el5s73aot390) se creó desde el Blueprint de este repositorio con autorización del usuario. Render añadió un sufijo al nombre para evitar colisiones. Los despliegues automáticos del servicio también están desactivados. El estado `paused` del Blueprint se refiere a su sincronización automática; no indica que el servicio esté apagado.
+
+La URI de `gamefinder_app_user` se configuró como variable privada con autorización específica. Render generó la clave JWT. No se guardan secretos en este documento ni en el repositorio.
+
+Se añadieron al acceso de red del proyecto Atlas únicamente los CIDR `74.220.49.0/24` y `74.220.57.0/24`, copiados por el usuario desde **Connect → Outbound** del servicio. Una consulta posterior confirmó nueve entradas: las siete anteriores conservadas y las dos nuevas. No se modificaron documentos, colecciones ni índices durante este despliegue.
+
+Comprobaciones HTTP públicas ejecutadas después de que Render indicara `live`:
+
+| Ruta | Resultado observado |
+| --- | --- |
+| `/interfaz/health/db` | HTTP 200, `{"api":"ok","mongodb":"conectado"}` |
+| `/interfaz/juegos/catalogo?limit=2` | HTTP 200, dos juegos recibidos y total de 20 |
+| `/interfaz/tiendas/` | HTTP 200, 11 tiendas |
+| `/interfaz/juegos/filtros` | HTTP 200, 14 géneros y 7 plataformas |
+| `/interfaz/usuarios/me` sin sesión | HTTP 401 |
+| `/interfaz/docs` y `/docs` | HTTP 200 |
+
+Los totales describen la consulta de esa fecha; no son datos de ejemplo ni valores que la interfaz deba fijar. Estas pruebas solo realizaron lecturas: no se probaron registro, edición, reseñas ni listas de deseos contra la base actual. La consulta final de registros de errores de Render devolvió un error 503 de su servicio de logs; por eso no se afirma haber confirmado ausencia de errores en esos registros.
+
+El plan del Blueprint se validó correctamente en Render mediante MCP. La CLI oficial se descargó en un directorio temporal, pero su validación requirió autenticación separada y no se completó desde esa CLI.
 
 ## Archivos preparados
 
@@ -53,13 +88,13 @@ La verificación automatizada del paso 2 utilizó una base separada. Las restric
 
 Configurar el proyecto de Vercel con **Root Directory `frontend`**, framework Vite, instalación `npm ci`, compilación `npm run build` y salida `dist`. El navegador debe continuar usando `VITE_API_URL=/api`.
 
-Cuando se conozca la URL real de Render, sustituir exclusivamente el destino de ejemplo en `frontend/vercel.json`:
+Antes de publicar o actualizar el frontend, sustituir el destino de ejemplo que todavía está en `frontend/vercel.json` por la URL ya verificada de Render:
 
 ```json
-{"source":"/api/:path*","destination":"https://DOMINIO-REAL-DEL-BACKEND/interfaz/:path*"}
+{"source":"/api/:path*","destination":"https://gamefinder-api-uo0o.onrender.com/interfaz/:path*"}
 ```
 
-Este valor todavía es un ejemplo, no una URL publicada. Conservar la regla SPA hacia `/index.html`, el prefijo `/interfaz` y las cabeceras de seguridad. Completar `CORS_ORIGINS` con el dominio real de Vercel antes de probar las sesiones públicas. Revisar cualquier proyecto Vercel existente antes de cambiarle el directorio raíz o sus variables.
+Conservar la regla SPA hacia `/index.html`, el prefijo `/interfaz` y las cabeceras de seguridad. `CORS_ORIGINS` sigue vacío: completar esa variable con el dominio real y confirmado de Vercel antes de probar las sesiones públicas. Revisar cualquier proyecto Vercel existente antes de cambiarle el directorio raíz o sus variables. Este registro del backend no modifica ni publica el frontend.
 
 ## Comprobaciones de la imagen
 
@@ -72,9 +107,9 @@ py -3.12 scripts/probar_contenedor_backend.py
 
 El script crea una red y contenedores con nombres únicos, usa una base MongoDB sintética y publica la API solo en un puerto de loopback elegido por Docker. Comprueba salud, catálogo vacío, rutas privadas, CORS, usuario de proceso, ausencia de credenciales/servidores de prueba y rechazo del arranque sin JWT. Al terminar retira únicamente sus contenedores, volúmenes anónimos y red. No crea servicios externos ni utiliza Atlas.
 
-La primera construcción local necesitó la CA del proxy del entorno, montada como secreto en una copia temporal del Dockerfile, sin desactivar TLS ni incorporar la CA a la imagen. La ejecución conjunta local encontró falta de espacio en el almacenamiento Docker; la comprobación completa se ejecutará en GitHub Actions con el Dockerfile del repositorio. No se presenta un intento fallido como una prueba aprobada.
+La primera construcción local necesitó la CA del proxy del entorno, montada como secreto en una copia temporal del Dockerfile, sin desactivar TLS ni incorporar la CA a la imagen. La ejecución conjunta local encontró falta de espacio en el almacenamiento Docker. La comprobación completa posterior aprobó los 16 controles de la imagen con el Dockerfile del repositorio en [GitHub Actions](https://github.com/CR1SOL1NY/GameFinder/actions/runs/45899200374). El despliegue real de Render también completó la construcción de la imagen.
 
-Después de publicar, todavía será necesario comprobar el sitio público desde un navegador: rutas directas, catálogo, sesión, logout, permisos, formularios y visualización móvil. El arranque local y las pruebas de una imagen no constituyen evidencia de un despliegue público.
+Después de conectar el frontend, todavía será necesario comprobar el sitio público desde un navegador: rutas directas, catálogo, sesión, logout, permisos, formularios y visualización móvil. Las comprobaciones públicas del backend de esta etapa no certifican todavía esos recorridos del frontend en producción.
 
 ## Referencias oficiales
 
