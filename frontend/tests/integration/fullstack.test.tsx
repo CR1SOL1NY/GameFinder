@@ -1,4 +1,4 @@
-/** React → HTTP → FastAPI → MongoDB de prueba. MongoDB real o emulado según el servidor de prueba; no usa Atlas ni navegador real. */
+/** React → HTTP → FastAPI → MongoDB de prueba, real (local/Atlas) o emulado según el ejecutor; sin navegador real. */
 import { beforeEach,afterEach,it,expect,vi } from 'vitest';
 import { render,screen,within,waitFor,fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -32,6 +32,17 @@ async function registerFromDialog(u:ReturnType<typeof userEvent.setup>){
 }
 
 it('registro, lista persistente tras logout/login, perfil y calificación guardados vía FastAPI',async()=>{
+  // Conserva HTTP real, pero retiene la respuesta de opciones del perfil hasta
+  // que el formulario ya esté abierto: reproduce una conexión lenta a Atlas.
+  const httpFetch=globalThis.fetch;
+  let holdPreferences=false;
+  let releasePreferences!:()=>void;
+  const preferencesReady=new Promise<void>(resolve=>{releasePreferences=resolve;});
+  vi.stubGlobal('fetch',async(input:string|URL|Request,init?:RequestInit)=>{
+    const response=await httpFetch(input,init);
+    if(holdPreferences&&new URL(String(input)).pathname.endsWith('/juegos/filtros'))await preferencesReady;
+    return response;
+  });
   const u=userEvent.setup();render(<App/>);
   await screen.findByRole('heading',{name:'Catálogo de videojuegos'});
   await screen.findByRole('button',{name:'Ver Juego de prueba Alfa'});
@@ -53,9 +64,13 @@ it('registro, lista persistente tras logout/login, perfil y calificación guarda
   const header=document.querySelector('header')!;
   await u.click(within(header).getByRole('button',{name:'Perfil'}));
   await screen.findByRole('heading',{name:'Persona Prueba'});
+  holdPreferences=true;
   await u.click(screen.getByRole('button',{name:'Editar perfil y preferencias'}));
   const name=screen.getByLabelText('Nombre');await u.clear(name);await u.type(name,'Nombre Actualizado');
-  await u.click(screen.getByRole('button',{name:'RPG'}));await u.click(screen.getByRole('button',{name:'PC'}));
+  expect(within(screen.getByRole('group',{name:'Géneros que te interesan'})).queryByRole('button',{name:'RPG'})).toBeNull();
+  releasePreferences();
+  await u.click(await within(screen.getByRole('group',{name:'Géneros que te interesan'})).findByRole('button',{name:'RPG'},{timeout:15000}));
+  await u.click(await within(screen.getByRole('group',{name:'Plataformas favoritas'})).findByRole('button',{name:'PC'}));
   await u.click(screen.getByRole('button',{name:'Guardar cambios'}));
   await waitFor(()=>expect(screen.getByRole('status').textContent).toContain('Perfil y preferencias guardados'));
   await u.click(screen.getByRole('button',{name:'Cerrar sesión'}));
@@ -63,6 +78,9 @@ it('registro, lista persistente tras logout/login, perfil y calificación guarda
   await u.click(screen.getByRole('button',{name:'Iniciar sesión o crear cuenta'}));
   const dialog=await screen.findByRole('dialog');await u.type(within(dialog).getByLabelText('Correo electrónico'),'persona@example.com');await u.type(within(dialog).getByLabelText('Contraseña'),'PruebaSegura123!');await u.click(within(dialog).getByRole('button',{name:'Iniciar sesión'}));
   await screen.findByRole('heading',{name:'Nombre Actualizado'});
+  const restored=await fetch(`${api}/usuarios/me`);
+  expect(restored.status).toBe(200);
+  expect((await restored.json()).preferencias).toMatchObject({generos:['RPG'],plataformas:['PC']});
   await u.click(within(screen.getByRole('navigation',{name:'Secciones de tu cuenta'})).getByRole('button',{name:'Lista de deseados',exact:true}));
   await screen.findByRole('button',{name:'Ver Juego de prueba Alfa'});
   await u.click(screen.getByRole('button',{name:'Mis calificaciones'}));

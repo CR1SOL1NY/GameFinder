@@ -43,8 +43,12 @@ async def verificar(args):
         entorno.pop('TEST_MONGODB_URI', None)
         print('Base vacía reclamada exclusivamente para esta verificación. Iniciando pruebas reales.', flush=True)
         # Secuencial: el servidor HTTP y pytest nunca comparten la base simultáneamente.
-        for command in ([sys.executable, '-m', 'pytest', 'pruebas_interfaz', '-q', '--tb=short', '--no-header'],
-                        [sys.executable, 'scripts/probar_integracion.py']):
+        if args.solo_interfaz:
+            print('Modo solo interfaz: se repiten únicamente los recorridos React/HTTP con MongoDB real.', flush=True)
+        commands = [[sys.executable, 'scripts/probar_integracion.py']]
+        if not args.solo_interfaz:
+            commands.insert(0, [sys.executable, '-m', 'pytest', 'pruebas_interfaz', '-q', '--tb=short', '--no-header'])
+        for command in commands:
             result = subprocess.run(command, cwd=ROOT, env=entorno)
             if result.returncode:
                 return result.returncode
@@ -66,7 +70,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', default='.env.pruebas', help='Archivo exclusivo de pruebas; nunca .env')
     parser.add_argument('--ejecutar', action='store_true', help='Ejecutar la suite y limpiar sus datos sintéticos en una base vacía')
+    parser.add_argument('--solo-interfaz', action='store_true', help='Repetir únicamente los recorridos React/HTTP cuando el backend ya fue verificado; requiere --ejecutar')
     args = parser.parse_args()
+    if args.solo_interfaz and not args.ejecutar:
+        parser.error('--solo-interfaz requiere --ejecutar y conserva las protecciones de la base vacía')
     if Path(args.config).name == '.env':
         parser.error('No se permite utilizar el .env de la aplicación. Usa .env.pruebas.')
     try:

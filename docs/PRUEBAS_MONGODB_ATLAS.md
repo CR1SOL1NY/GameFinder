@@ -1,6 +1,6 @@
 # Paso 2: comprobar MongoDB real y preparar Atlas
 
-Estado: **MongoDB real local verificado; usuario de pruebas de Atlas creado; suite de FastAPI contra Atlas pendiente por conectividad del entorno**. Se accedió al clúster mediante el conector autorizado, sin modificar la base `GameFinder`.
+Estado: **154 pruebas de backend aprobadas contra Atlas desde Windows; repetición de los recorridos del frontend pendiente tras corregir una espera asíncrona de la prueba**. Se accedió al clúster mediante el conector autorizado, sin modificar la base `GameFinder`.
 
 ## Qué se comprobó aquí
 
@@ -18,9 +18,17 @@ Atlas generó la contraseña. La URI se guardó únicamente en `.env.pruebas`, c
 
 El conector autorizado se conectó al clúster y comprobó que el destino de pruebas no tenía colecciones. Se creó una colección temporal vacía de verificación y se retiró después. El destino vuelve a tener cero colecciones y no se copió ningún documento del catálogo. MongoDB no muestra la base vacía en su listado; aparecerá al realizar la primera escritura de las pruebas. No hace falta dejar una colección de preparación que bloquearía el ejecutor.
 
-La conexión de Python desde este entorno **no quedó validada**: la resolución DNS local devuelve que no existe el registro SRV, aunque un resolvedor DNS público sí lo encuentra. Un diagnóstico de solo lectura con la dirección estándar de Atlas y TLS habilitado terminó en `ServerSelectionTimeoutError`. No se amplió la lista de IP de Atlas ni se deshabilitó TLS. La autenticación del usuario nuevo desde Motor y la suite completa contra Atlas siguen pendientes; el acceso del conector no se presenta como prueba de acceso desde Python.
+La conexión de Python desde este entorno **no quedó validada**: la resolución DNS local devuelve que no existe el registro SRV, aunque un resolvedor DNS público sí lo encuentra. Un diagnóstico de solo lectura con la dirección estándar de Atlas y TLS habilitado terminó en `ServerSelectionTimeoutError`. No se amplió la lista de IP de Atlas ni se deshabilitó TLS. En esa preparación no se pudo validar la autenticación del usuario desde Motor; la ejecución posterior en Windows sí confirmó el acceso y aprobó las 154 pruebas del backend. El acceso del conector se mantiene como una comprobación distinta del acceso desde Python.
 
-Los permisos anteriores se verificaron mediante la API de administración, no mediante consultas a documentos de la base actual. Tampoco se verificaron los documentos del catálogo existente ni el aspecto de la aplicación en un navegador. El siguiente intento debe hacerse desde un equipo con DNS y conectividad a Atlas, y con su IP autorizada, siguiendo los comandos de diagnóstico de esta guía.
+Los permisos anteriores se verificaron mediante la API de administración, no mediante consultas a documentos de la base actual. Tampoco se verificaron los documentos del catálogo existente ni el aspecto de la aplicación en un navegador. La ejecución posterior desde Windows y el recorrido que falta repetir se describen a continuación.
+
+## Resultado compartido desde Windows el 26 de noviembre de 2026
+
+El registro proporcionado por el usuario confirma conexión a Atlas 8.0.39, **154 pruebas de backend aprobadas en 531,30 segundos**, nueve de diez recorridos del frontend aprobados y limpieza final terminada. Esto es evidencia de una ejecución en el computador del usuario, no una ejecución de Atlas desde este entorno.
+
+El recorrido de registro/perfil intentaba seleccionar `RPG` inmediatamente después de abrir Configuración. Las opciones llegan mediante otra petición HTTP y todavía no estaban renderizadas. La prueba ahora espera los botones de género/plataforma antes de usarlos. La regresión retiene deliberadamente esa respuesta real hasta que el formulario esté abierto, sin inventar los datos, y verifica las preferencias guardadas después de cerrar e iniciar sesión.
+
+El mismo error se reprodujo localmente antes de la corrección; los diez recorridos corregidos aprobaron con MongoDB emulado y con MongoDB 8.0.4 real local. También se comprobó la limpieza. El diseño y los archivos de ejecución del frontend permanecen intactos. Falta repetir estos recorridos corregidos contra Atlas desde el computador del usuario para cerrar la verificación completa.
 
 ## 1. Preparar un destino exclusivo en Atlas
 
@@ -77,6 +85,17 @@ Las dos suites se ejecutan secuencialmente. La preparación y la limpieza compru
 Si se interrumpe el proceso de forma forzada o se pierde la conexión durante la limpieza, podrían quedar datos sintéticos en el destino de pruebas. La siguiente ejecución rechazará el destino ocupado. Utiliza un nuevo nombre de pruebas y revisa el anterior antes de limpiarlo manualmente; el script no elimina automáticamente colecciones anteriores.
 
 El resultado esperado es **todas las pruebas de backend aprobadas, 10 recorridos aprobados y limpieza terminada**. Solo entonces podrá registrarse la comprobación real con Atlas. Comparte únicamente el resumen final, sin la configuración privada.
+
+## Repetir solo los recorridos del frontend
+
+Cuando las pruebas del backend ya aprobaron y solo cambió la prueba de interfaz, actualiza la rama y ejecuta en la **terminal del BACKEND**, desde la raíz:
+
+```powershell
+git pull --ff-only
+.\.venv-interfaz\Scripts\python.exe -m scripts.verificar_mongodb --ejecutar --solo-interfaz
+```
+
+Este modo ejecuta los diez recorridos React → HTTP → FastAPI → MongoDB con las mismas restricciones de base vacía, propiedad y limpieza. No vuelve a ejecutar las 154 pruebas de backend. `--solo-interfaz` requiere `--ejecutar`; por defecto el comando conserva el diagnóstico sin escrituras. La ejecución completa sigue disponible con `--ejecutar` sin esa opción.
 
 ## Archivos y límites
 
