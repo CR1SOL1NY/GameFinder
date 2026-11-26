@@ -1,5 +1,7 @@
 # GameFinder
 
+La preparación para alojar FastAPI en **Render** y el frontend en **Vercel** se documenta en [despliegue, variables y comprobaciones](docs/DESPLIEGUE_RENDER_VERCEL.md). Esta configuración todavía no publica la aplicación.
+
 GameFinder es una plataforma web de búsqueda, comparación de precios y recomendación personalizada de videojuegos. Esta aplicación centraliza en una sola vista la ficha de cada juego y sus precios vigentes en múltiples tiendas digitales asociadas, resolviendo la dispersión de información en el mercado.  
 
 ## Características principales

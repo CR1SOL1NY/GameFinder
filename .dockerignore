@@ -1,0 +1,19 @@
+# Solo se envían al constructor los archivos necesarios para la API.
+**
+!Dockerfile
+!requirements-interfaz.lock.txt
+!main.py
+!main_interfaz.py
+!app/
+!app/**
+!integracion_frontend/
+!integracion_frontend/**
+
+# Estas exclusiones prevalecen aunque un archivo privado esté dentro de un paquete.
+**/.env
+**/.env.*
+**/__pycache__
+**/__pycache__/**
+**/*.pyc
+**/*.pyo
+**/.pytest_cache

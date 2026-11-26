@@ -1,0 +1,30 @@
+name: Comprobar contenedor de producción
+on:
+  push:
+    branches: ['main', 'infraestructura/preparacion-despliegue']
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'render.yaml'
+      - 'requirements-interfaz.lock.txt'
+      - 'app/**'
+      - 'integracion_frontend/**'
+      - 'main*.py'
+      - 'scripts/probar_contenedor_backend.py'
+      - '.github/workflows/comprobar-produccion.yml'
+permissions:
+  contents: read
+jobs:
+  contenedor:
+    name: Construir y verificar imagen sin Atlas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Construir imagen de producción
+        run: docker build -t gamefinder-backend:verificacion .
+      - name: Verificar imagen con MongoDB descartable
+        run: python scripts/probar_contenedor_backend.py
