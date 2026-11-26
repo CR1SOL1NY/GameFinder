@@ -104,6 +104,55 @@ it('combina búsqueda, género y plataforma y muestra el estado vacío',async()=
   await screen.findByRole('button',{name:'Ver Juego de prueba Beta'});
 });
 
+it.each(['/catalogo', '/ofertas'])('conserva filtros, presupuesto y orden al buscar y borrar el texto en %s', async (path) => {
+  const filters = 'genero=RPG&genero=Estrategia&plataforma=PC&plataforma=PS5&min=1000&max=20000&orden=precio_desc';
+  history.replaceState(null, '', `${path}?${filters}&pagina=2`);
+  const u = userEvent.setup(); render(<App />);
+  await screen.findByRole('heading', { name: 'No encontramos videojuegos' });
+  const search = screen.getByRole('textbox', { name: 'Buscar juegos' });
+  await u.type(search, 'Alfa{Enter}');
+  await screen.findByRole('button', { name: 'Ver Juego de prueba Alfa' });
+  const expected = new URLSearchParams(filters);
+  expected.set('q', 'Alfa');
+  expect(location.pathname).toBe(path);
+  expect(new URLSearchParams(location.search)).toEqual(expected);
+  expect(screen.getByLabelText('RPG')).toHaveProperty('checked', true);
+  expect(screen.getByLabelText('Estrategia')).toHaveProperty('checked', true);
+  expect(screen.getByLabelText('PC')).toHaveProperty('checked', true);
+  expect(screen.getByLabelText('PS5')).toHaveProperty('checked', true);
+  expect(screen.getByLabelText('Precio mínimo')).toHaveProperty('value', '1000');
+  expect(screen.getByLabelText('Precio máximo')).toHaveProperty('value', '20000');
+  expect(screen.getByLabelText('Ordenar')).toHaveProperty('value', 'precio_desc');
+  expect(screen.queryByRole('button', { name: 'Ver Juego de prueba Comparación' })).toBeNull();
+
+  await u.clear(search);
+  await u.click(screen.getByRole('button', { name: 'Buscar', exact: true }));
+  await screen.findByRole('button', { name: 'Ver Juego de prueba Comparación' });
+  expect(location.pathname).toBe(path);
+  expect(new URLSearchParams(location.search)).toEqual(new URLSearchParams(filters));
+  expect(screen.queryByRole('button', { name: 'Ver Juego de prueba Beta' })).toBeNull();
+
+  await u.click(screen.getByRole('button', { name: 'Ver Juego de prueba Alfa' }));
+  await screen.findByRole('heading', { name: 'Juego de prueba Alfa' });
+  await u.click(screen.getByRole('button', { name: /Volver/ }));
+  await screen.findByRole('button', { name: 'Ver Juego de prueba Comparación' });
+  expect(location.pathname).toBe(path);
+  expect(new URLSearchParams(location.search)).toEqual(new URLSearchParams(filters));
+});
+
+it('conserva el texto que estás escribiendo cuando cambias un filtro', async () => {
+  const u = userEvent.setup(); render(<App />);
+  await screen.findByRole('button', { name: 'Ver Juego de prueba Alfa' });
+  const search = screen.getByRole('textbox', { name: 'Buscar juegos' });
+  await u.type(search, 'Alfa');
+  await u.click(screen.getByLabelText('RPG'));
+  await screen.findByText('1 juego encontrado');
+  expect(search).toHaveProperty('value', 'Alfa');
+  await u.click(screen.getByRole('button', { name: 'Buscar', exact: true }));
+  await screen.findByRole('heading', { name: 'Resultados para “Alfa”' });
+  expect(new URLSearchParams(location.search).get('genero')).toBe('RPG');
+});
+
 it('la navegación y el error de conexión conservan acceso a la cuenta',async()=>{
   history.replaceState(null,'','/');
   vi.stubGlobal('fetch',vi.fn(async()=>{throw new TypeError('Fallo de red simulado en prueba');}));

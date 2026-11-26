@@ -1,6 +1,6 @@
 # Integración del frontend existente de GameFinder
 
-La rama `funcionalidad/integracion-frontend` incorpora el frontend existente en el repositorio `CR1SOL1NY/GameFinder`. El diseño, las vistas, componentes, servicios de React y recursos públicos se conservan del estado `64326ce25eb4a201d8117f6195e7f7d6d66bad2b` de `xSeVeN-bot/gamefinder`. El archivo `origen-frontend.json` registra los hashes SHA-256 de esos archivos para comprobar que no fueron rediseñados.
+La rama `funcionalidad/integracion-frontend` incorporó el frontend existente en el repositorio `CR1SOL1NY/GameFinder`. En esa incorporación, el diseño, las vistas, componentes, servicios de React y recursos públicos se conservaron del estado `64326ce25eb4a201d8117f6195e7f7d6d66bad2b` de `xSeVeN-bot/gamefinder`. El archivo `origen-frontend.json` registra los hashes SHA-256 de esos archivos como referencia histórica; las correcciones posteriores se documentan a continuación.
 
 La base del repositorio del equipo es `eda69a2f4697934968605d00372c8c18e6bdec18`. Se inspeccionaron `main`, `Actualizacion_entrega2`, `feature/migracion-mongodb` y `prueba_conexion_bd`: las actualizaciones de la entrega 2 ya están integradas en `main`. Los cinco commits iniciales conservaron íntegros `app/`, `main.py` y `requirements.txt`. La revisión posterior de [permisos del backend](SEGURIDAD_BACKEND.md) modifica deliberadamente la autorización de las rutas originales; `requirements.txt` se conserva.
 
@@ -63,6 +63,16 @@ Abre `http://localhost:5173`. Se usa `npm.cmd` para evitar el bloqueo de `npm.ps
 Inicio, catálogo, búsqueda/filtros/orden/paginación, ficha con Información y Reseñas y comparador lateral, precios separados por moneda/plataforma, cuentas, perfil, preferencias, deseados, medias estrellas, últimas reseñas, comparaciones recientes y avisos locales de bajadas de precio. Administración conserva el editor de juegos, requisitos, tiendas, plataformas y ofertas; exige una cuenta que ya tenga rol administrativo.
 
 Los precios, juegos, reseñas e imágenes provienen de los datos de la API. No se incorporan el catálogo de 229 juegos, imágenes adicionales, precios falsos, cuentas predeterminadas ni scripts de modificación de tiendas. Las recomendaciones son reglas; el historial de comparaciones y los avisos se conservan por cuenta/navegador, sin afirmar sincronización o avisos con la web cerrada.
+
+## Corrección posterior: búsqueda y filtros
+
+La rama `correccion/busqueda-y-filtros` modifica deliberadamente `frontend/src/App.tsx`: al enviar una búsqueda desde Catálogo u Ofertas, conserva los géneros, plataformas, límites de presupuesto y orden ya aplicados. Solo reemplaza el texto de búsqueda y vuelve a la primera página; borrar el texto y buscar mantiene los filtros. La búsqueda desde Ofertas permanece en esa sección. Desde otras páginas se inicia una búsqueda nueva en Catálogo, sin trasladar parámetros ajenos al catálogo.
+
+Cambiar un filtro tampoco borra el texto que se está escribiendo. Los controles «Limpiar todo» y «Limpiar filtros» siguen eliminando todos los criterios. Los parámetros permanecen en la URL, por lo que pueden compartirse o recargarse. No se cambia el contrato HTTP, el backend ni la base de datos.
+
+Se añadieron tres recorridos React → HTTP → FastAPI: búsqueda y borrado de texto con múltiples filtros en Catálogo y Ofertas, retorno desde una ficha y conservación del borrador al cambiar un filtro. Fallaron antes de la corrección y los trece recorridos aprobaron después, con persistencia emulada y datos sintéticos aislados. Esta comprobación no accede a Atlas ni sustituye una revisión visual en navegador.
+
+El ajuste visual posterior modifica `frontend/src/components/Navigation.tsx` y `frontend/src/index.css`: el foco del buscador se indica mediante el borde redondeado del contenedor y una sombra azul suave, sin el rectángulo interior generado por la regla general `:focus-visible`. La excepción se limita al campo del buscador; los demás controles conservan su indicador de teclado. Se verificó en Chromium con clic y Tab, temas claro/oscuro y anchos de 1440 y 390 píxeles, sin desbordamiento horizontal. La inspección se limitó al encabezado en una ruta 404 con sesión anónima representada localmente, sin conexión a Atlas; no certifica el resto de las pantallas. La compilación TypeScript/Vite también se ejecutó después del ajuste.
 
 ## Índices y límites del backend
 

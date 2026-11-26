@@ -11,7 +11,7 @@ export function Header({ view, section, query, setQuery, onSearch, go, loggedIn,
           <span className="grid size-9 place-items-center rounded-xl bg-blue-600 text-white shadow-[0_0_22px_rgba(37,99,235,.45)]"><Icon name="gamepad" /></span>
           <span className="text-lg font-extrabold">Game<span className="text-blue-400">Finder</span></span>
         </button>
-        <div className="order-3 mx-auto mt-1 flex w-full items-center rounded-xl border border-blue-500/35 bg-field px-3 focus-within:border-blue-400 md:order-none md:mt-0 md:max-w-2xl md:flex-1">
+        <div className="header-search order-3 mx-auto mt-1 flex w-full items-center rounded-xl border border-blue-500/35 bg-field px-3 md:order-none md:mt-0 md:max-w-2xl md:flex-1">
           <Icon name="search" className="size-4 text-blue-300" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && onSearch()} className="h-10 min-w-0 flex-1 bg-transparent px-3 text-xs outline-none placeholder:text-slate-500" aria-label="Buscar juegos" maxLength={150} placeholder="Busca juegos, géneros, plataformas..." />
           <button onClick={onSearch} aria-label="Buscar" className="grid size-10 place-items-center text-blue-300"><Icon name="search" className="size-4" /></button>

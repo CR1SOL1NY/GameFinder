@@ -224,6 +224,18 @@ button {
 }
 
 :focus-visible { outline: 2px solid #00A3FF; outline-offset: 4px; }
+/* El foco del buscador se muestra en el contenedor redondeado completo. */
+.header-search {
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.header-search:focus-within {
+  border-color: #007BFF;
+  box-shadow: 0 0 0 3px rgb(0 123 255 / 14%);
+}
+.header-search input:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
 button:disabled { cursor: not-allowed; }
 select, textarea { font: inherit; }
 .skip-link { position: fixed; top: -100px; left: 1rem; z-index: 100; background: #007BFF; color: white; padding: 1rem; border-radius: .5rem; }
