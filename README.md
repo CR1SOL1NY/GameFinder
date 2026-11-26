@@ -40,8 +40,8 @@ El backend ha sido refactorizado, moviendo la lógica de consultas de un archivo
 
 1. Clonar el repositorio:
    ```bash
-   git clone [POR COMPLETAR - URL del repositorio de GitHub]
-   cd gamefinder-backend
+   git clone https://github.com/CR1SOL1NY/GameFinder.git
+   cd GameFinder
 
    ```
 
@@ -62,4 +62,8 @@ Consulta [política, compatibilidad, pruebas y límites](docs/SEGURIDAD_BACKEND.
 
 ## Verificación de MongoDB y Atlas: paso 2
 
-Se añadieron un diagnóstico sin escrituras y un ejecutor de pruebas con una base vacía exclusiva, configurada mediante `.env.pruebas`. La suite se verificó con MongoDB 8.0.4 real local: 154 pruebas de backend y 10 recorridos HTTP aprobados. El usuario de Atlas `gamefinder_pruebas_user` ya está creado con `readWrite` solo sobre `gamefinder_pruebas`. El paso 2 automatizado quedó completado desde Windows: 154 pruebas de backend y diez recorridos del frontend aprobados contra Atlas, en dos ejecuciones, con limpieza terminada. Se utilizaron datos sintéticos en `gamefinder_pruebas`; no se modificaron los datos de la base actual. La revisión de la pull request, la comprobación visual y la preparación de producción siguen pendientes. Consulta [preparación de Atlas y comandos para VS Code](docs/PRUEBAS_MONGODB_ATLAS.md).
+Se añadieron un diagnóstico sin escrituras y un ejecutor de pruebas con una base vacía exclusiva, configurada mediante `.env.pruebas`. La suite se verificó con MongoDB 8.0.4 real local: 154 pruebas de backend y 10 recorridos HTTP aprobados. El usuario de Atlas `gamefinder_pruebas_user` ya está creado con `readWrite` solo sobre `gamefinder_pruebas`. El paso 2 automatizado quedó completado desde Windows: 154 pruebas de backend y diez recorridos del frontend aprobados contra Atlas, en dos ejecuciones, con limpieza terminada. Se utilizaron datos sintéticos en `gamefinder_pruebas`; no se modificaron los datos de la base actual. Consulta [preparación de Atlas y comandos para VS Code](docs/PRUEBAS_MONGODB_ATLAS.md). El estado posterior de publicación se documenta a continuación.
+
+## Backend público en Render
+
+Desde el 26 de noviembre de 2026, la API está disponible en https://gamefinder-api-uo0o.onrender.com, con [Swagger del contrato del frontend](https://gamefinder-api-uo0o.onrender.com/interfaz/docs). Se verificaron su estado `live`, la conexión con Atlas, la lectura del catálogo y la respuesta 401 del perfil sin sesión. No se modificaron documentos de la base actual. La conexión del frontend en Vercel y sus sesiones públicas siguen pendientes; consulta el [registro del despliegue y los pasos restantes](docs/DESPLIEGUE_RENDER_VERCEL.md).
