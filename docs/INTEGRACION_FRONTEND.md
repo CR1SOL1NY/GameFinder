@@ -70,7 +70,9 @@ La rama `correccion/busqueda-y-filtros` modifica deliberadamente `frontend/src/A
 
 Cambiar un filtro tampoco borra el texto que se está escribiendo. Los controles «Limpiar todo» y «Limpiar filtros» siguen eliminando todos los criterios. Los parámetros permanecen en la URL, por lo que pueden compartirse o recargarse. No se cambia el contrato HTTP, el backend ni la base de datos.
 
-Se añadieron tres recorridos React → HTTP → FastAPI: búsqueda y borrado de texto con múltiples filtros en Catálogo y Ofertas, retorno desde una ficha y conservación del borrador al cambiar un filtro. Fallaron antes de la corrección y los trece recorridos aprobaron después, con persistencia emulada y datos sintéticos aislados. Esta comprobación no accede a Atlas ni sustituye una revisión visual en navegador. El segundo ajuste solicitado para el cuadro de búsqueda queda pendiente de precisar su texto o apariencia.
+Se añadieron tres recorridos React → HTTP → FastAPI: búsqueda y borrado de texto con múltiples filtros en Catálogo y Ofertas, retorno desde una ficha y conservación del borrador al cambiar un filtro. Fallaron antes de la corrección y los trece recorridos aprobaron después, con persistencia emulada y datos sintéticos aislados. Esta comprobación no accede a Atlas ni sustituye una revisión visual en navegador.
+
+El ajuste visual posterior modifica `frontend/src/components/Navigation.tsx` y `frontend/src/index.css`: el foco del buscador se indica mediante el borde redondeado del contenedor y una sombra azul suave, sin el rectángulo interior generado por la regla general `:focus-visible`. La excepción se limita al campo del buscador; los demás controles conservan su indicador de teclado. Se verificó en Chromium con clic y Tab, temas claro/oscuro y anchos de 1440 y 390 píxeles, sin desbordamiento horizontal. La inspección se limitó al encabezado en una ruta 404 con sesión anónima representada localmente, sin conexión a Atlas; no certifica el resto de las pantallas. La compilación TypeScript/Vite también se ejecutó después del ajuste.
 
 ## Índices y límites del backend
 
