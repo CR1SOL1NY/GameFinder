@@ -1,5 +1,6 @@
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from integracion_frontend import config
 
 from app.routers import juegos
 from app.routers import usuarios
@@ -24,6 +25,17 @@ app.add_exception_handler(
 )
 
 app.add_middleware(SlowAPIMiddleware)
+
+
+@app.middleware("http")
+async def proteger_cache_privada(request: Request, call_next):
+    response = await call_next(request)
+    if (request.url.path.startswith("/usuarios") or request.headers.get("authorization")
+            or request.cookies.get(config.COOKIE_NAME)):
+        response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
 
 # Registrar routers
 app.include_router(juegos.router)

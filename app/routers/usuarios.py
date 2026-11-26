@@ -1,17 +1,19 @@
-"""Rutas de usuarios. Solo PUT y DELETE exigen JWT; GET y POST son públicos."""
+"""Registro/login públicos; datos privados limitados al titular o administrador."""
 from datetime import datetime, timezone
 
 import bcrypt
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
 
 from app.database import get_db
-from app.security import crear_access_token, get_current_user
+from app.security import crear_access_token, get_current_user, get_admin, propietario, propietario_o_admin
+from integracion_frontend import config
+from integracion_frontend.services.common import publico
+from starlette.concurrency import run_in_threadpool
 
-from fastapi import Request
 from app.limiter import limiter
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
@@ -19,10 +21,6 @@ router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
 def serializar(valor):
     return jsonable_encoder(valor, custom_encoder={ObjectId: str})
-
-
-def publico(usuario):
-    return serializar({clave: valor for clave, valor in usuario.items() if clave != "contrasenaHash"})
 
 
 def validar_id(valor):
@@ -53,6 +51,7 @@ class UsuarioCreate(BaseModel):
 async def listar_usuarios(
     skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=100),
     db: AsyncIOMotorDatabase = Depends(get_db),
+    usuario_actual: dict = Depends(get_admin),
 ):
     usuarios = await db.usuarios.find().skip(skip).limit(limit).to_list(length=limit)
     return [publico(u) for u in usuarios]
@@ -67,10 +66,9 @@ async def login_usuario(
     credenciales: LoginRequest,
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
-    # Aquí conservas tu código de autenticación JWT
     # 1. Buscar usuario
     usuario = await db.usuarios.find_one({
-        "correo": credenciales.correo
+        "correo": credenciales.correo, "activo": {"$ne": False}
     })
 
     if not usuario:
@@ -81,7 +79,7 @@ async def login_usuario(
 
     # 2. Verificar contraseña
     try:
-        valido = bcrypt.checkpw(
+        valido = await run_in_threadpool(bcrypt.checkpw,
             credenciales.contrasena.encode("utf-8"),
             usuario.get("contrasenaHash", "").encode("utf-8")
         )
@@ -95,9 +93,7 @@ async def login_usuario(
         )
 
     # 3. Generar token JWT
-    token = crear_access_token(
-        str(usuario["_id"])
-    )
+    token = await crear_access_token(str(usuario["_id"]), db)
 
     # 4. Devolver token y datos públicos
     return {
@@ -111,8 +107,17 @@ async def login_usuario(
     }
 
 
+@router.post("/logout")
+async def cerrar_sesion(response: Response, db=Depends(get_db), usuario_actual=Depends(get_current_user)):
+    await db.sesiones.delete_one({"_id": usuario_actual["_sessionId"]})
+    response.delete_cookie(config.COOKIE_NAME, path="/", httponly=True,
+                           secure=config.COOKIE_SECURE, samesite=config.COOKIE_SAMESITE)
+    return {"mensaje": "Sesión cerrada"}
+
+
 @router.post("/", status_code=201)
-async def crear_usuario(datos: UsuarioCreate, db: AsyncIOMotorDatabase = Depends(get_db)):
+@limiter.limit("5/minute")
+async def crear_usuario(request: Request, datos: UsuarioCreate, db: AsyncIOMotorDatabase = Depends(get_db)):
     """Conserva la entrada contrasenaHash que ya usa el proyecto."""
     if not datos.contrasenaHash.startswith(("$2a$", "$2b$", "$2y$")):
         raise HTTPException(status_code=400, detail="contrasenaHash debe ser un hash bcrypt")
@@ -123,14 +128,16 @@ async def crear_usuario(datos: UsuarioCreate, db: AsyncIOMotorDatabase = Depends
         "contrasenaHash": datos.contrasenaHash,
         "fechaRegistro": datetime.now(timezone.utc),
         "preferencias": datos.preferencias.model_dump() if datos.preferencias else None,
-        "listaDeseados": [],
+        "listaDeseados": [], "rol": "usuario", "activo": True,
     }
     resultado = await db.usuarios.insert_one(documento)
     return publico(await db.usuarios.find_one({"_id": resultado.inserted_id}))
 
 
 @router.get("/{usuario_id}")
-async def obtener_usuario_por_id(usuario_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def obtener_usuario_por_id(usuario_id: str, db: AsyncIOMotorDatabase = Depends(get_db),
+                                 usuario_actual=Depends(get_current_user)):
+    propietario_o_admin(usuario_id, usuario_actual)
     usuario = await db.usuarios.find_one({"_id": validar_id(usuario_id)})
     if usuario is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -143,10 +150,11 @@ async def agregar_a_deseados(
     db: AsyncIOMotorDatabase = Depends(get_db),
     usuario_actual: dict = Depends(get_current_user),
 ):
+    propietario(usuario_id, usuario_actual)
     usuario_oid, juego_oid = validar_id(usuario_id), validar_id(juego_id)
     if not await db.usuarios.find_one({"_id": usuario_oid}):
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    if not await db.juegos.find_one({"_id": juego_oid}):
+    if not await db.juegos.find_one({"_id": juego_oid, "activo": {"$ne": False}}):
         raise HTTPException(status_code=404, detail="Juego no encontrado")
     resultado = await db.usuarios.update_one(
         {"_id": usuario_oid, "listaDeseados.juegoId": {"$ne": juego_oid}},
@@ -165,6 +173,7 @@ async def eliminar_de_deseados(
     db: AsyncIOMotorDatabase = Depends(get_db),
     usuario_actual: dict = Depends(get_current_user),
 ):
+    propietario(usuario_id, usuario_actual)
     usuario_oid, juego_oid = validar_id(usuario_id), validar_id(juego_id)
     resultado = await db.usuarios.update_one(
         {"_id": usuario_oid}, {"$pull": {"listaDeseados": {"juegoId": juego_oid}}},
@@ -177,7 +186,9 @@ async def eliminar_de_deseados(
 
 
 @router.get("/{usuario_id}/deseados")
-async def obtener_lista_deseados(usuario_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def obtener_lista_deseados(usuario_id: str, db: AsyncIOMotorDatabase = Depends(get_db),
+                                usuario_actual=Depends(get_current_user)):
+    propietario(usuario_id, usuario_actual)
     oid = validar_id(usuario_id)
     usuario = await db.usuarios.find_one({"_id": oid})
     if usuario is None:
@@ -204,7 +215,9 @@ async def obtener_lista_deseados(usuario_id: str, db: AsyncIOMotorDatabase = Dep
 
 
 @router.get("/{usuario_id}/recomendaciones")
-async def obtener_recomendaciones(usuario_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def obtener_recomendaciones(usuario_id: str, db: AsyncIOMotorDatabase = Depends(get_db),
+                                 usuario_actual=Depends(get_current_user)):
+    propietario(usuario_id, usuario_actual)
     usuario = await db.usuarios.find_one({"_id": validar_id(usuario_id)})
     if usuario is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -212,6 +225,7 @@ async def obtener_recomendaciones(usuario_id: str, db: AsyncIOMotorDatabase = De
     if not preferencias:
         raise HTTPException(status_code=400, detail="Sin preferencias configuradas")
     query = {
+        "activo": {"$ne": False},
         "generos": {"$in": preferencias.get("generos", [])},
         "precio_mas_barato.precio": {
             "$gte": preferencias.get("precioMin", 0),
@@ -233,10 +247,12 @@ async def eliminar_usuario(
     db: AsyncIOMotorDatabase = Depends(get_db),
     usuario_actual: dict = Depends(get_current_user),
 ):
+    propietario(usuario_id, usuario_actual)
     oid = validar_id(usuario_id)
     if not await db.usuarios.find_one({"_id": oid}):
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     # Sin transacciones: las eliminaciones son operaciones independientes.
     await db.calificaciones.delete_many({"usuarioId": oid})
     await db.usuarios.delete_one({"_id": oid})
+    await db.sesiones.delete_many({"usuarioId": oid})
     return {"mensaje": "Usuario eliminado exitosamente", "usuarioId": usuario_id}

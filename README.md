@@ -40,3 +40,24 @@ El backend ha sido refactorizado, moviendo la lógica de consultas de un archivo
    ```bash
    git clone [POR COMPLETAR - URL del repositorio de GitHub]
    cd gamefinder-backend
+
+   ```
+
+
+## Frontend integrado en una rama de trabajo
+
+La rama `funcionalidad/integracion-frontend` añade el frontend existente de GameFinder en `frontend/`, conservando su diseño, componentes y recursos. El backend del equipo permanece en la raíz. La integración inicial conservó sus archivos; la revisión posterior corrige sus permisos sin sustituir su arquitectura ni modificar `requirements.txt`.
+
+Para conectar todas las funciones del frontend se incorpora una entrada opcional `main_interfaz:app`, con el contrato compatible en `/interfaz` y el mismo cliente MongoDB del equipo. Consulta [instalación, origen y verificaciones](docs/INTEGRACION_FRONTEND.md). No se despliega ni se modifica Atlas al incorporar estos archivos.
+
+
+## Permisos del backend: paso 1
+
+Las rutas originales ahora verifican titularidad de cuentas/reseñas y reservan las escrituras de catálogo, ofertas y tiendas a administradores. Ambas APIs utilizan sesiones revocables: cerrar sesión impide reutilizar el token en cualquiera de ellas. Los tokens antiguos sin `jti` requieren iniciar sesión nuevamente.
+
+Consulta [política, compatibilidad, pruebas y límites](docs/SEGURIDAD_BACKEND.md). Esta etapa añade 45 pruebas aisladas y no modifica Atlas ni publica la aplicación. La verificación posterior con una base Atlas separada de pruebas está documentada en el paso 2. La descripción inicial del proyecto expresa sus objetivos; el alcance realmente implementado y verificado se detalla en [la documentación de integración](docs/INTEGRACION_FRONTEND.md).
+
+
+## Verificación de MongoDB y Atlas: paso 2
+
+Se añadieron un diagnóstico sin escrituras y un ejecutor de pruebas con una base vacía exclusiva, configurada mediante `.env.pruebas`. La suite se verificó con MongoDB 8.0.4 real local: 154 pruebas de backend y 10 recorridos HTTP aprobados. El usuario de Atlas `gamefinder_pruebas_user` ya está creado con `readWrite` solo sobre `gamefinder_pruebas`. El paso 2 automatizado quedó completado desde Windows: 154 pruebas de backend y diez recorridos del frontend aprobados contra Atlas, en dos ejecuciones, con limpieza terminada. Se utilizaron datos sintéticos en `gamefinder_pruebas`; no se modificaron los datos de la base actual. La revisión de la pull request, la comprobación visual y la preparación de producción siguen pendientes. Consulta [preparación de Atlas y comandos para VS Code](docs/PRUEBAS_MONGODB_ATLAS.md).

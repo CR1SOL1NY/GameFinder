@@ -1,0 +1,36 @@
+# Dependencias de producción verificadas con Python 3.12
+annotated-doc==0.0.6
+annotated-types==0.8.0
+anyio==4.16.0
+bcrypt==5.0.0
+certifi==2026.10.23
+charset-normalizer==3.5.2
+click==8.5.1
+colorama==0.4.6; sys_platform == "win32"
+Deprecated==3.0.1
+dnspython==2.9.2
+email-validator==2.4.0
+fastapi==0.141.1
+h11==0.16.0
+httptools==0.9.0
+idna==3.20
+limits==5.8.0
+motor==3.7.1
+packaging==26.3
+pydantic==2.14.3
+pydantic_core==2.50.4
+PyJWT==2.15.1
+pymongo==4.20.0
+python-dotenv==1.2.4
+PyYAML==6.0.3
+requests==2.34.2
+slowapi==0.1.10
+starlette==1.10.0
+typing-inspection==0.4.5
+typing_extensions==4.16.0
+urllib3==2.8.0
+uvicorn==0.54.0
+uvloop==0.23.0; sys_platform != "win32" and sys_platform != "cygwin" and platform_python_implementation == "CPython"
+watchfiles==1.3.0
+websockets==17.4
+wrapt==2.5.2

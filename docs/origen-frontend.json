@@ -1,0 +1,174 @@
+{
+  "origen": "xSeVeN-bot/gamefinder",
+  "estado": "64326ce25eb4a201d8117f6195e7f7d6d66bad2b",
+  "archivos": [
+    {
+      "archivo": "frontend/public/cover-placeholder.svg",
+      "sha256": "d84c14913ca34b266b8974235f537871f7a9c4232c1e4c148f597b60928fcd3c"
+    },
+    {
+      "archivo": "frontend/public/favicon.svg",
+      "sha256": "84856b1fa530b1ef445f1ea2c8eba3fe6518f6f90f8ef21f15177644ddeaeac5"
+    },
+    {
+      "archivo": "frontend/src/App.tsx",
+      "sha256": "196c0f5f325a3fafeb34dc9d426f708ba17037679e4b442c056838a976acf067"
+    },
+    {
+      "archivo": "frontend/src/api.ts",
+      "sha256": "fc4e09d75c6769b965900a7e1e048ad696f58de975eafa2f91f0aa7a5459223e"
+    },
+    {
+      "archivo": "frontend/src/authApi.ts",
+      "sha256": "c07f1407131f2a3e12e5665ef857a4128cbca62905b340c099a760b80aebcdc1"
+    },
+    {
+      "archivo": "frontend/src/components/ErrorBoundary.tsx",
+      "sha256": "d4a636db253505d525ee8c5b3c9501088482bccac9a2da19fb3ebd13bede2347"
+    },
+    {
+      "archivo": "frontend/src/components/GameCard.tsx",
+      "sha256": "af7e8f1d3ca4e65394d8e577b4b16f2be6765dbfec3f3592da6c19da082379ce"
+    },
+    {
+      "archivo": "frontend/src/components/GameEditor.tsx",
+      "sha256": "973cf2cd30cd676b9f76e500dcd668787662d1e94448a8ff4dc1ff169ad0f63c"
+    },
+    {
+      "archivo": "frontend/src/components/GameInformation.tsx",
+      "sha256": "dd280dd8b5230adb4195a0cdf9100c200b5d0946067b265d3b7b0f15826ed768"
+    },
+    {
+      "archivo": "frontend/src/components/LoginModal.tsx",
+      "sha256": "91803ff8b127f4db4886e86fea875dc5a4c1186c2894fdc594891616ee1850c9"
+    },
+    {
+      "archivo": "frontend/src/components/Navigation.tsx",
+      "sha256": "ca627db10416aa6e0d5afb8da37d1abbb5eb669db21d6579f532624244ac4c77"
+    },
+    {
+      "archivo": "frontend/src/components/NotificationBell.tsx",
+      "sha256": "aeadb9ea045675fb6eddf6d898645f9c71ad9e8fe0b62e31f2d9135e302b9777"
+    },
+    {
+      "archivo": "frontend/src/components/OfferComparison.tsx",
+      "sha256": "346a0c817bda8d6fa514cd4412ddd032d75618618c1e63fa5d594ad00425d8fd"
+    },
+    {
+      "archivo": "frontend/src/components/OfferEditor.tsx",
+      "sha256": "3f9414d222ee8aa7a868c239ef32577c0c9944f9f834bd6c4b81e9b18a704817"
+    },
+    {
+      "archivo": "frontend/src/components/RatingStars.tsx",
+      "sha256": "00c9a4bb7c44e0335fae13c3cfb6b56a65a4c4ed9e09aa34442935ec0fcbd860"
+    },
+    {
+      "archivo": "frontend/src/components/Reviews.tsx",
+      "sha256": "f77058d6c5d26fe571dcaa41235631e6a814f6683e57fd4605f26b4b62d4ce23"
+    },
+    {
+      "archivo": "frontend/src/components/Status.tsx",
+      "sha256": "408d311e13fb7818d5942a89854be1d6ec69b28536db09f1e65d21957d36adb8"
+    },
+    {
+      "archivo": "frontend/src/components/StoreEditor.tsx",
+      "sha256": "bc515da7cf335599cccb98a1a6a1ca9431319b3e8d60159c3a16745b77332117"
+    },
+    {
+      "archivo": "frontend/src/components/common.tsx",
+      "sha256": "ff035fcc5a2b075882ea5457587fa1403cfe98d840228f356bc1ad8521c7abbb"
+    },
+    {
+      "archivo": "frontend/src/components/profile/ComparisonHistory.tsx",
+      "sha256": "5ca17e413d2a3a2bf205985c208ba399367d22439d326a49417f7a062513d914"
+    },
+    {
+      "archivo": "frontend/src/components/profile/ProfileOverview.tsx",
+      "sha256": "d1fc27891a7a95b227f38d38d2945177dceafbefa39d0fe04973c700b19369f4"
+    },
+    {
+      "archivo": "frontend/src/components/profile/ReviewCard.tsx",
+      "sha256": "a611eadaba4fc2c49306bee93f250f3f91e7d45b429484ab9694e5a38884ff02"
+    },
+    {
+      "archivo": "frontend/src/context/Store.tsx",
+      "sha256": "920c8b5052cbbb68e7b8180356e3da3ceef716d6db003b2ddb708eac2ba121af"
+    },
+    {
+      "archivo": "frontend/src/context/router.ts",
+      "sha256": "0e4c603fc16957eb8c0a3608c7ac670a0bf98be1b6bc66aa174f3f57c19b0cc7"
+    },
+    {
+      "archivo": "frontend/src/games.ts",
+      "sha256": "8f352c5b1fed6331538e1d8399dd3263afa53cc7a5e7d818cc48ac3a1e8f4bba"
+    },
+    {
+      "archivo": "frontend/src/hooks/usePriceAlerts.ts",
+      "sha256": "5d87f173975d21d41e40142a4fe097d2d79c1a565664a1dd2e7d8348442f2d66"
+    },
+    {
+      "archivo": "frontend/src/hooks/useProfileGames.ts",
+      "sha256": "3e35412f728a77df35376566fc1f302606d6ec59c4e8567470cb241c6bda7fdc"
+    },
+    {
+      "archivo": "frontend/src/index.css",
+      "sha256": "1455749abea316ea5a59a72e6746b89dcbbe418bc01953f19727c557f2a792db"
+    },
+    {
+      "archivo": "frontend/src/main.tsx",
+      "sha256": "712880cd19a0e714043deab3a89226e68426fd1d266eb1ec806209dab9f3121b"
+    },
+    {
+      "archivo": "frontend/src/services/adminGames.ts",
+      "sha256": "bb163af02f9ac7d0c8e107c79e55289794729edbcd23c19f9efdaf30dd45780b"
+    },
+    {
+      "archivo": "frontend/src/services/comparisons.ts",
+      "sha256": "7271cab97c9b4de07299809d0c0244a5273ca4862dc80e138af32604a31b66a0"
+    },
+    {
+      "archivo": "frontend/src/services/gameDetails.ts",
+      "sha256": "d793fe0768da5649bb6d7077cace581807329099418f96e1ebc0ead7638fab88"
+    },
+    {
+      "archivo": "frontend/src/services/http.ts",
+      "sha256": "a768c9b8dfd0fa299e115f087da4294da6b7a8955fd2124163720481847a35da"
+    },
+    {
+      "archivo": "frontend/src/services/offers.ts",
+      "sha256": "71354a1c5f3cd9897fb0a93519ee4637da1c42dc6ca0e14ea97bf0a837d1d51b"
+    },
+    {
+      "archivo": "frontend/src/services/priceAlerts.ts",
+      "sha256": "b80879a945fb0fccafa536cb3bf8bd0f3c4cc81f971e971aeb98642e8f610295"
+    },
+    {
+      "archivo": "frontend/src/services/reviews.ts",
+      "sha256": "11f5eaaf5069f17d2a1c1552425435e577659f8f7cbbf381e65d0abd1109d5d8"
+    },
+    {
+      "archivo": "frontend/src/views/Admin.tsx",
+      "sha256": "a2831a00609ce9993e8f99e2082bcea2ee4af4d1e0a6977237a589c243468ad9"
+    },
+    {
+      "archivo": "frontend/src/views/Catalog.tsx",
+      "sha256": "d9100ef526c1495c08f2a41dc13e798e14d50522e0cd400132a542fbdbcc2b30"
+    },
+    {
+      "archivo": "frontend/src/views/GameDetail.tsx",
+      "sha256": "e49f12285d841f5c90f044d8708f31dd275acc501af90ae10795b6cfa8ef4214"
+    },
+    {
+      "archivo": "frontend/src/views/Home.tsx",
+      "sha256": "003dfab3ee14adecad12d1c14f4b45286e5f7c9fc9280ffd0bd59c2c3b8d414c"
+    },
+    {
+      "archivo": "frontend/src/views/Profile.tsx",
+      "sha256": "14caf23971f281a9d24e9196d339dd4f61a11dbfb33dbd5266a5901af1fb2d3c"
+    },
+    {
+      "archivo": "frontend/src/vite-env.d.ts",
+      "sha256": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5"
+    }
+  ]
+}

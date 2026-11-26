@@ -1,11 +1,11 @@
-"""Tiendas: consultas públicas; DELETE solo con JWT."""
+"""Tiendas: consultas públicas; DELETE reservado a administradores."""
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.database import get_db
-from app.security import get_current_user
+from app.security import get_admin
 
 router = APIRouter(prefix="/tiendas", tags=["Tiendas"])
 
@@ -34,7 +34,7 @@ async def obtener_tienda(tienda_id: str, db: AsyncIOMotorDatabase = Depends(get_
 async def eliminar_tienda(
     tienda_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    usuario_actual: dict = Depends(get_current_user),
+    usuario_actual: dict = Depends(get_admin),
 ):
     oid = validar_id(tienda_id)
     tienda = await db.tiendas.find_one({"_id": oid})

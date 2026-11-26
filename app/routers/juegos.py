@@ -12,12 +12,12 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
 
 from app.database import get_db
-from app.security import get_current_user
+from app.security import get_current_user, get_admin
+from integracion_frontend.services.calificaciones import crear, listar
 
 from fastapi import Request
 from app.limiter import limiter
 
-from app.security import crear_access_token
 
 router = APIRouter(prefix="/juegos", tags=["Juegos"])
 
@@ -79,16 +79,24 @@ def etapa_minimo():
     }
 
 
+def solo_visibles(campo):
+    return {"$addFields": {campo: {"$filter": {
+        "input": "$" + campo, "as": "resena",
+        "cond": {"$ne": [{"$ifNull": ["$$resena.visible", True]}, False]},
+    }}}}
+
+
 # --- CATÁLOGO ---
 @router.get("/")
 @limiter.limit("100/minute")
 async def listar_juegos(
     request: Request,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     pipeline = [
+        {"$match": {"activo": {"$ne": False}}},
         {"$sort": {"_id": 1}},
         {"$skip": skip},
         {"$limit": limit},
@@ -96,6 +104,7 @@ async def listar_juegos(
             "from": "calificaciones", "localField": "_id",
             "foreignField": "juegoId", "as": "calificaciones",
         }},
+        solo_visibles("calificaciones"),
         {"$addFields": {
             "promedioCalificaciones": {"$ifNull": [{"$avg": "$calificaciones.puntaje"}, 0]},
             "totalCalificaciones": {"$size": "$calificaciones"},
@@ -108,7 +117,7 @@ async def listar_juegos(
 
 @router.get("/buscar")
 async def buscar_juegos(q: str, db: AsyncIOMotorDatabase = Depends(get_db)):
-    juegos = await db.juegos.find({"titulo": {"$regex": q, "$options": "i"}}).to_list(length=100)
+    juegos = await db.juegos.find({"titulo": {"$regex": q, "$options": "i"}, "activo": {"$ne": False}}).to_list(length=100)
     if not juegos:
         raise HTTPException(status_code=404, detail="No se encontraron juegos con ese título")
     return preparar_json(juegos)
@@ -118,10 +127,12 @@ async def buscar_juegos(q: str, db: AsyncIOMotorDatabase = Depends(get_db)):
 @router.get("/estadisticas/calificaciones")
 async def estadisticas_juegos(db: AsyncIOMotorDatabase = Depends(get_db)):
     pipeline = [
+        {"$match": {"activo": {"$ne": False}}},
         {"$lookup": {
             "from": "calificaciones", "localField": "_id",
             "foreignField": "juegoId", "as": "resenas"
         }},
+        solo_visibles("resenas"),
         {"$project": {
             "titulo": 1,
             "total_reseñas": {"$size": "$resenas"},
@@ -135,7 +146,7 @@ async def estadisticas_juegos(db: AsyncIOMotorDatabase = Depends(get_db)):
 
 @router.get("/{id_juego}")
 async def detalle_juego(id_juego: str, db: AsyncIOMotorDatabase = Depends(get_db)):
-    juego = await db.juegos.find_one({"_id": validar_id(id_juego, "ID de juego")})
+    juego = await db.juegos.find_one({"_id": validar_id(id_juego, "ID de juego"), "activo": {"$ne": False}})
     if juego is None:
         raise HTTPException(status_code=404, detail="Juego no encontrado")
     return preparar_json(juego)
@@ -149,9 +160,7 @@ async def obtener_calificaciones_juego(
     limit: int = Query(50, ge=1, le=100),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-    oid = validar_id(id_juego, "ID de juego")
-    cursor = db.calificaciones.find({"juegoId": oid}).sort("fecha", -1).skip(skip).limit(limit)
-    return preparar_json(await cursor.to_list(length=limit))
+    return await listar(db, id_juego, skip, limit)
 
 
 @router.post("/{id_juego}/calificaciones", status_code=201)
@@ -159,33 +168,20 @@ async def agregar_calificacion(
     id_juego: str,
     calificacion_in: CalificacionCreate,
     db: AsyncIOMotorDatabase = Depends(get_db),
+    usuario_actual: dict = Depends(get_current_user),
 ):
-    oid_juego = validar_id(id_juego, "ID de juego")
-    oid_usuario = validar_id(calificacion_in.usuarioId, "ID de usuario")
-    if not await db.juegos.find_one({"_id": oid_juego}):
-        raise HTTPException(status_code=404, detail="No puedes calificar un juego que no existe")
-    if not await db.usuarios.find_one({"_id": oid_usuario}):
-        raise HTTPException(status_code=404, detail="El usuario no existe")
-    documento = {
-        "usuarioId": oid_usuario,
-        "juegoId": oid_juego,
-        "puntaje": calificacion_in.puntaje,
-        "comentario": calificacion_in.comentario,
-        "fecha": datetime.now(timezone.utc),
-        "visible": calificacion_in.visible,
-    }
-    resultado = await db.calificaciones.insert_one(documento)
-    return preparar_json(await db.calificaciones.find_one({"_id": resultado.inserted_id}))
+    return await crear(db, id_juego, calificacion_in, usuario_actual)
 
 
 # --- TIENDAS ASOCIADAS A UN JUEGO ---
 @router.get("/{id_juego}/tiendas")
 async def obtener_tiendas_juego(id_juego: str, db: AsyncIOMotorDatabase = Depends(get_db)):
     oid = validar_id(id_juego, "ID de juego")
-    juego = await db.juegos.find_one({"_id": oid}, {"titulo": 1})
+    juego = await db.juegos.find_one({"_id": oid, "activo": {"$ne": False}}, {"titulo": 1})
     if juego is None:
         raise HTTPException(status_code=404, detail="Juego no encontrado")
     pipeline = [
+        {"$match": {"activo": {"$ne": False}}},
         {"$match": {"_id": oid}},
         {"$unwind": "$precios"},
         {"$lookup": {
@@ -219,6 +215,7 @@ async def agregar_tienda_a_juego(
     id_juego: str,
     datos: TiendaJuegoCreate,
     db: AsyncIOMotorDatabase = Depends(get_db),
+    usuario_actual: dict = Depends(get_admin),
 ):
     oid_juego = validar_id(id_juego, "ID de juego")
     oid_tienda = validar_id(datos.tiendaId, "ID de tienda")
@@ -270,7 +267,7 @@ async def eliminar_tienda_de_juego(
     id_juego: str,
     tienda_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    usuario_actual: dict = Depends(get_current_user),
+    usuario_actual: dict = Depends(get_admin),
 ):
     oid_juego = validar_id(id_juego, "ID de juego")
     oid_tienda = validar_id(tienda_id, "ID de tienda")
@@ -311,7 +308,7 @@ async def eliminar_tienda_de_juego(
 async def eliminar_juego(
     id_juego: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    usuario_actual: dict = Depends(get_current_user),
+    usuario_actual: dict = Depends(get_admin),
 ):
     oid = validar_id(id_juego, "ID de juego")
     juego = await db.juegos.find_one({"_id": oid})
@@ -337,7 +334,7 @@ async def actualizar_precio_tienda(
     tienda_id: str,
     datos: PrecioUpdate,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    usuario_actual: dict = Depends(get_current_user),
+    usuario_actual: dict = Depends(get_admin),
 ):
     """Actualiza el precio y recalcula el mínimo en una sola operación."""
     oid_juego = validar_id(id_juego, "ID de juego")
