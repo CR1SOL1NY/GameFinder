@@ -53,9 +53,9 @@ Las pruebas usan MongoDB emulado en memoria y no cargan la conexión real de Atl
 
 ## Alcance y paso siguiente
 
-No se modificaron datos, índices, credenciales ni tiendas de Atlas. No se fusionó `main` ni se publicó la aplicación. El frontend conserva sus archivos y diseño.
+Durante el paso 1 de permisos no se modificaron datos, índices, credenciales ni tiendas de Atlas. No se fusionó `main` ni se publicó la aplicación. El frontend conserva sus archivos y diseño.
 
-El paso 2 incorpora un [ejecutor de pruebas real](PRUEBAS_MONGODB_ATLAS.md), ya verificado con MongoDB local; su ejecución contra una **base Atlas separada de pruebas** sigue pendiente de configurar. Allí deben comprobarse conexión, restricciones de unicidad y pipelines originales de precios que usan `$sortArray` (MongoDB 5.2 o superior). La suite con servidor real ya ejecuta creación, modificación, eliminación y recálculo de esos precios. La suite emulada comprueba que esos endpoints exijan administrador y que un administrador alcance la validación de recursos; no presenta como ejecutados sus pipelines de escritura reales. Las operaciones compatibles de `/interfaz` conservan sus pruebas existentes.
+El paso 2 incorpora un [ejecutor de pruebas real](PRUEBAS_MONGODB_ATLAS.md), verificado con MongoDB local y con una **base Atlas separada de pruebas** desde Windows. Se aprobaron 154 pruebas de backend y diez recorridos del frontend, con limpieza terminada. Se comprobaron conexión, restricciones de unicidad y pipelines originales de precios que usan `$sortArray` (MongoDB 5.2 o superior). La suite con servidor real ya ejecuta creación, modificación, eliminación y recálculo de esos precios. La suite emulada comprueba que esos endpoints exijan administrador y que un administrador alcance la validación de recursos; no presenta como ejecutados sus pipelines de escritura reales. Las operaciones compatibles de `/interfaz` conservan sus pruebas existentes.
 
 La preparación de índices continúa siendo explícita y opcional con `scripts/preparar_indices_interfaz.py`; no ocurre al arrancar. Los índices únicos deben provisionarse antes de permitir escrituras concurrentes en producción. Un conflicto o un duplicado existente requiere revisión; esta etapa no los elimina.
 

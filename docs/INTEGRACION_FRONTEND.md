@@ -74,9 +74,9 @@ La herramienta opcional se consulta desde la **terminal del BACKEND**, sin escri
 .\.venv-interfaz\Scripts\python.exe -m scripts.preparar_indices_interfaz
 ```
 
-Si el equipo decide aplicar esa preparación a su base, la misma herramienta admite `--aplicar`. Esa opción **sí crea índices** y debe ejecutarse como una operación de base de datos deliberada, con respaldo y revisión del equipo. No se ejecutó sobre Atlas durante esta entrega. No elimina datos ni reemplaza índices incompatibles; un conflicto requiere revisión.
+Si el equipo decide aplicar esa preparación a su base, la misma herramienta admite `--aplicar`. Esa opción **sí crea índices** y debe ejecutarse como una operación de base de datos deliberada, con respaldo y revisión del equipo. Esta herramienta no se ejecutó sobre la base actual de Atlas; las pruebas del paso 2 sí prepararon índices en su base exclusiva y retiraron sus colecciones al finalizar. No elimina datos ni reemplaza índices incompatibles; un conflicto requiere revisión.
 
-Las rutas heredadas ahora aplican la [política de autorización documentada](SEGURIDAD_BACKEND.md): titularidad, roles administrativos y sesiones revocables compartidas. Los tokens antiguos sin `jti` requieren iniciar sesión nuevamente. La [preparación de la prueba con Atlas](PRUEBAS_MONGODB_ATLAS.md) ya está disponible y se verificó con MongoDB real local. La conexión al Atlas del equipo y la preparación de producción siguen pendientes. No se desplegó la aplicación ni se accedió a Atlas.
+Las rutas heredadas ahora aplican la [política de autorización documentada](SEGURIDAD_BACKEND.md): titularidad, roles administrativos y sesiones revocables compartidas. Los tokens antiguos sin `jti` requieren iniciar sesión nuevamente. La [preparación de la prueba con Atlas](PRUEBAS_MONGODB_ATLAS.md) ya está disponible y se verificó con MongoDB real local. La verificación automatizada posterior contra Atlas se completó desde Windows: 154 pruebas del backend y diez recorridos del frontend aprobados en su base exclusiva de pruebas, con limpieza terminada. La revisión de la pull request, la comprobación visual y la preparación de producción siguen pendientes. No se desplegó la aplicación.
 
 ## Verificaciones
 
@@ -95,7 +95,7 @@ En la **terminal del BACKEND**, desde la raíz:
 .\.venv-interfaz\Scripts\python.exe scripts\probar_integracion.py
 ```
 
-Se ejecutaron localmente **81 pruebas DOM del frontend, 83 pruebas iniciales de la API integrada y su montaje, 10 flujos React → HTTP → FastAPI y la compilación TypeScript/Vite**. La base usada en esas comprobaciones iniciales fue emulada y descartable. La revisión posterior añade la [suite con MongoDB real](PRUEBAS_MONGODB_ATLAS.md). El montaje comprueba que el cliente MongoDB sea compartido y que las rutas originales y el nuevo prefijo coexistan. No se probó la conexión con el Atlas real ni se certifica el aspecto final en un motor de navegador a distintas resoluciones.
+Se ejecutaron localmente **81 pruebas DOM del frontend, 83 pruebas iniciales de la API integrada y su montaje, 10 flujos React → HTTP → FastAPI y la compilación TypeScript/Vite**. La base usada en esas comprobaciones iniciales fue emulada y descartable. La revisión posterior añade la [suite con MongoDB real](PRUEBAS_MONGODB_ATLAS.md). El montaje comprueba que el cliente MongoDB sea compartido y que las rutas originales y el nuevo prefijo coexistan. En esa comprobación inicial no se probó Atlas. Posteriormente el usuario ejecutó las pruebas automatizadas contra Atlas desde Windows y compartió los resultados aprobados; consulta el registro del paso 2. No se certifica todavía el aspecto final en un motor de navegador a distintas resoluciones.
 
 También se inició Vite realmente en una prueba HTTP aislada: sirvió el HTML y TypeScript, reenvió `/api/juegos/catalogo` a `/interfaz/juegos/catalogo` y recibió 401 al consultar un perfil sin sesión. Esto comprueba el proxy de desarrollo; no sustituye una prueba visual en navegador.
 
